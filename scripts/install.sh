@@ -20,7 +20,7 @@ echo -e "${NC}"
 # Claude Code config directory (always ~/.claude)
 CLAUDE_CONFIG_DIR="$HOME/.claude"
 
-echo -e "${BLUE}[1/5]${NC} Checking Claude Code installation..."
+echo -e "${BLUE}[1/6]${NC} Checking Claude Code installation..."
 if ! command -v claude &> /dev/null; then
     echo -e "${YELLOW}Warning: 'claude' command not found. Please install Claude Code first:${NC}"
     echo "  curl -fsSL https://claude.ai/install.sh | bash"
@@ -41,12 +41,12 @@ else
     echo -e "${GREEN}✓ Claude Code found${NC}"
 fi
 
-echo -e "${BLUE}[2/5]${NC} Creating directories..."
+echo -e "${BLUE}[2/6]${NC} Creating directories..."
 mkdir -p "$CLAUDE_CONFIG_DIR/agents"
 mkdir -p "$CLAUDE_CONFIG_DIR/commands"
 echo -e "${GREEN}✓ Created $CLAUDE_CONFIG_DIR${NC}"
 
-echo -e "${BLUE}[3/5]${NC} Installing agent definitions..."
+echo -e "${BLUE}[3/6]${NC} Installing agent definitions..."
 
 # Oracle Agent
 cat > "$CLAUDE_CONFIG_DIR/agents/oracle.md" << 'AGENT_EOF'
@@ -578,7 +578,7 @@ AGENT_EOF
 
 echo -e "${GREEN}✓ Installed 19 agent definitions (11 base + 8 tiered variants)${NC}"
 
-echo -e "${BLUE}[4/5]${NC} Installing slash commands..."
+echo -e "${BLUE}[4/6]${NC} Installing slash commands..."
 
 # Ultrawork command
 cat > "$CLAUDE_CONFIG_DIR/commands/ultrawork.md" << 'CMD_EOF'
@@ -858,55 +858,6 @@ Plans are saved to `.sisyphus/plans/` for later execution with `/sisyphus`.
 Tell me about what you want to build or accomplish. I'll ask questions to understand the full scope before creating a plan.
 CMD_EOF
 
-# Orchestrator Command
-cat > "$CLAUDE_CONFIG_DIR/commands/orchestrator.md" << 'CMD_EOF'
----
-description: Activate Orchestrator-Sisyphus for complex multi-step tasks
----
-
-[ORCHESTRATOR MODE]
-
-$ARGUMENTS
-
-## Orchestrator-Sisyphus Activated
-
-You are now running with Orchestrator-Sisyphus, the master coordinator for complex multi-step tasks.
-
-### Capabilities
-
-1. **Todo Management**: Break down complex tasks into atomic, trackable todos
-2. **Smart Delegation**: Route tasks to the most appropriate specialist agent
-3. **Progress Tracking**: Monitor completion status and handle blockers
-4. **Verification**: Ensure all tasks are truly complete before finishing
-
-### Agent Routing
-
-| Task Type | Delegated To |
-|-----------|--------------|
-| Visual/UI work | frontend-engineer |
-| Complex analysis/debugging | oracle |
-| Documentation | document-writer |
-| Quick searches | explore |
-| Research/docs lookup | librarian |
-| Image/screenshot analysis | multimodal-looker |
-
-### Notepad System
-
-Learnings and discoveries are recorded in `.sisyphus/notepads/` to prevent repeated mistakes.
-
-### Verification Protocol
-
-Before marking any task complete:
-- Check file existence
-- Run tests if applicable
-- Type check if TypeScript
-- Code review for quality
-
----
-
-Describe the complex task you need orchestrated. I'll break it down and coordinate the specialists.
-CMD_EOF
-
 # Ralph Loop Command
 cat > "$CLAUDE_CONFIG_DIR/commands/ralph-loop.md" << 'CMD_EOF'
 ---
@@ -999,191 +950,9 @@ Your version information is stored at: \`~/.claude/.sisyphus-version.json\`
 Let me check for updates now. I'll read your version file and compare against the latest GitHub release.
 CMD_EOF
 
-echo -e "${GREEN}✓ Installed 12 slash commands${NC}"
+echo -e "${GREEN}✓ Installed 11 slash commands${NC}"
 
-echo -e "${BLUE}[5/7]${NC} Installing skills..."
-mkdir -p "$CLAUDE_CONFIG_DIR/skills/ultrawork"
-mkdir -p "$CLAUDE_CONFIG_DIR/skills/git-master"
-mkdir -p "$CLAUDE_CONFIG_DIR/skills/frontend-ui-ux"
-
-# Ultrawork skill
-cat > "$CLAUDE_CONFIG_DIR/skills/ultrawork/SKILL.md" << 'SKILL_EOF'
----
-name: ultrawork
-description: Activate maximum performance mode with parallel agent orchestration
----
-
-# Ultrawork Skill
-
-Activates maximum performance mode with parallel agent orchestration.
-
-## When Activated
-
-This skill enhances Claude's capabilities by:
-
-1. **Parallel Execution**: Running multiple agents simultaneously for independent tasks
-2. **Aggressive Delegation**: Routing tasks to specialist agents immediately
-3. **Background Operations**: Using `run_in_background: true` for long operations
-4. **Persistence Enforcement**: Never stopping until all tasks are verified complete
-
-## Agent Routing
-
-| Task Type | Agent | Model |
-|-----------|-------|-------|
-| Complex debugging | oracle | Opus |
-| Documentation research | librarian | Sonnet |
-| Quick searches | explore | Haiku |
-| UI/UX work | frontend-engineer | Sonnet |
-| Technical writing | document-writer | Haiku |
-| Visual analysis | multimodal-looker | Sonnet |
-| Plan review | momus | Opus |
-| Pre-planning | metis | Opus |
-| Strategic planning | prometheus | Opus |
-
-## Background Execution Rules
-
-**Run in Background** (set `run_in_background: true`):
-- Package installation: npm install, pip install, cargo build
-- Build processes: npm run build, make, tsc
-- Test suites: npm test, pytest, cargo test
-- Docker operations: docker build, docker pull
-
-**Run Blocking** (foreground):
-- Quick status checks: git status, ls, pwd
-- File reads, edits
-- Simple commands
-
-## Verification Checklist
-
-Before stopping, verify:
-- [ ] TODO LIST: Zero pending/in_progress tasks
-- [ ] FUNCTIONALITY: All requested features work
-- [ ] TESTS: All tests pass (if applicable)
-- [ ] ERRORS: Zero unaddressed errors
-
-**If ANY checkbox is unchecked, CONTINUE WORKING.**
-SKILL_EOF
-
-# Git Master skill
-cat > "$CLAUDE_CONFIG_DIR/skills/git-master/SKILL.md" << 'SKILL_EOF'
----
-name: git-master
-description: Git expert for atomic commits, rebasing, and history management
----
-
-# Git Master Skill
-
-You are a Git expert combining three specializations:
-1. **Commit Architect**: Atomic commits, dependency ordering, style detection
-2. **Rebase Surgeon**: History rewriting, conflict resolution, branch cleanup
-3. **History Archaeologist**: Finding when/where specific changes were introduced
-
-## Core Principle: Multiple Commits by Default
-
-**ONE COMMIT = AUTOMATIC FAILURE**
-
-Hard rules:
-- 3+ files changed -> MUST be 2+ commits
-- 5+ files changed -> MUST be 3+ commits
-- 10+ files changed -> MUST be 5+ commits
-
-## Style Detection (First Step)
-
-Before committing, analyze the last 30 commits:
-```bash
-git log -30 --oneline
-git log -30 --pretty=format:"%s"
-```
-
-Detect:
-- **Language**: Korean vs English (use majority)
-- **Style**: SEMANTIC (feat:, fix:) vs PLAIN vs SHORT
-
-## Commit Splitting Rules
-
-| Criterion | Action |
-|-----------|--------|
-| Different directories/modules | SPLIT |
-| Different component types | SPLIT |
-| Can be reverted independently | SPLIT |
-| Different concerns (UI/logic/config/test) | SPLIT |
-| New file vs modification | SPLIT |
-
-## History Search Commands
-
-| Goal | Command |
-|------|---------|
-| When was "X" added? | `git log -S "X" --oneline` |
-| What commits touched "X"? | `git log -G "X" --oneline` |
-| Who wrote line N? | `git blame -L N,N file.py` |
-| When did bug start? | `git bisect start && git bisect bad && git bisect good <tag>` |
-
-## Rebase Safety
-
-- **NEVER** rebase main/master
-- Use `--force-with-lease` (never `--force`)
-- Stash dirty files before rebasing
-SKILL_EOF
-
-# Frontend UI/UX skill
-cat > "$CLAUDE_CONFIG_DIR/skills/frontend-ui-ux/SKILL.md" << 'SKILL_EOF'
----
-name: frontend-ui-ux
-description: Designer-turned-developer who crafts stunning UI/UX even without design mockups
----
-
-# Frontend UI/UX Skill
-
-You are a designer who learned to code. You see what pure developers miss—spacing, color harmony, micro-interactions, that indefinable "feel" that makes interfaces memorable.
-
-## Design Process
-
-Before coding, commit to a **BOLD aesthetic direction**:
-
-1. **Purpose**: What problem does this solve? Who uses it?
-2. **Tone**: Pick an extreme:
-   - Brutally minimal
-   - Maximalist chaos
-   - Retro-futuristic
-   - Organic/natural
-   - Luxury/refined
-   - Playful/toy-like
-   - Editorial/magazine
-   - Brutalist/raw
-   - Art deco/geometric
-   - Soft/pastel
-   - Industrial/utilitarian
-3. **Constraints**: Technical requirements (framework, performance, accessibility)
-4. **Differentiation**: What's the ONE thing someone will remember?
-
-## Aesthetic Guidelines
-
-### Typography
-Choose distinctive fonts. **Avoid**: Arial, Inter, Roboto, system fonts, Space Grotesk.
-
-### Color
-Commit to a cohesive palette. Use CSS variables. **Avoid**: purple gradients on white (AI slop).
-
-### Motion
-Focus on high-impact moments. One well-orchestrated page load > scattered micro-interactions. Use CSS-only where possible.
-
-### Spatial Composition
-Unexpected layouts. Asymmetry. Overlap. Diagonal flow. Grid-breaking elements.
-
-### Visual Details
-Create atmosphere—gradient meshes, noise textures, geometric patterns, layered transparencies, dramatic shadows.
-
-## Anti-Patterns (NEVER)
-
-- Generic fonts (Inter, Roboto, Arial)
-- Cliched color schemes (purple gradients on white)
-- Predictable layouts
-- Cookie-cutter design
-SKILL_EOF
-
-echo -e "${GREEN}✓ Installed 3 skills${NC}"
-
-echo -e "${BLUE}[6/8]${NC} Installing hook scripts..."
+echo -e "${BLUE}[5/6]${NC} Installing hook scripts..."
 mkdir -p "$CLAUDE_CONFIG_DIR/hooks"
 
 # Ask user about silent auto-update preference (opt-in for security)
@@ -1608,7 +1377,7 @@ chmod +x "$CLAUDE_CONFIG_DIR/hooks/silent-auto-update.sh"
 
 echo -e "${GREEN}✓ Installed 3 hook scripts${NC}"
 
-echo -e "${BLUE}[7/8]${NC} Configuring hooks in settings.json..."
+echo -e "${BLUE}[6/6]${NC} Configuring hooks in settings.json..."
 
 # Backup existing settings if present
 SETTINGS_FILE="$CLAUDE_CONFIG_DIR/settings.json"
@@ -1741,9 +1510,7 @@ SETTINGS_EOF
   fi
 fi
 
-echo -e "${BLUE}[8/8]${NC} Creating CLAUDE.md with Sisyphus system prompt..."
-
-# Only create if it doesn't exist in home directory
+# Only create CLAUDE.md if it doesn't exist in home directory
 if [ ! -f "$HOME/CLAUDE.md" ]; then
     cat > "$CLAUDE_CONFIG_DIR/CLAUDE.md" << 'CLAUDEMD_EOF'
 # Sisyphus Multi-Agent System
@@ -1939,7 +1706,7 @@ else
 fi
 
 # Save version metadata for auto-update system
-VERSION="2.0.0-beta.2"
+VERSION="2.0.1-beta"
 VERSION_FILE="$CLAUDE_CONFIG_DIR/.sisyphus-version.json"
 
 cat > "$VERSION_FILE" << VERSION_EOF
@@ -1982,11 +1749,14 @@ echo "  momus               - Plan review (Opus)"
 echo "  metis               - Pre-planning analysis (Opus)"
 echo "  sisyphus-junior     - Focused execution (Sonnet)"
 echo "  prometheus          - Strategic planning (Opus)"
+echo "  qa-tester           - CLI/service testing with tmux (Sonnet)"
 echo ""
-echo -e "${YELLOW}Available Skills (via Skill tool):${NC}"
-echo "  ultrawork           - Maximum performance mode"
-echo "  git-master          - Git commit, rebase, and history expert"
-echo "  frontend-ui-ux      - Designer-developer for stunning UI/UX"
+echo -e "${YELLOW}Smart Model Routing (Tiered Variants):${NC}"
+echo "  oracle-low, oracle-medium          - Quick to moderate analysis"
+echo "  sisyphus-junior-low, -high         - Simple to complex execution"
+echo "  librarian-low                      - Quick doc lookups"
+echo "  explore-medium                     - Thorough codebase search"
+echo "  frontend-engineer-low, -high       - Simple to complex UI work"
 echo ""
 echo -e "${YELLOW}Hooks:${NC}"
 echo "  Configure hooks via /hooks command in Claude Code"

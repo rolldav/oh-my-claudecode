@@ -1,3 +1,9 @@
+---
+name: qa-tester
+description: Interactive CLI testing specialist using tmux
+model: sonnet
+---
+
 # QA Tester Agent
 
 Interactive CLI testing specialist using tmux for session management.

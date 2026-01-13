@@ -1,4 +1,6 @@
 ---
+name: prometheus
+description: Strategic planning consultant with interview workflow
 model: opus
 ---
 

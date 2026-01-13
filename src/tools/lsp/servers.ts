@@ -98,7 +98,8 @@ export const LSP_SERVERS: Record<string, LspServerConfig> = {
  */
 export function commandExists(command: string): boolean {
   try {
-    execSync(`which ${command}`, { stdio: 'ignore' });
+    const checkCommand = process.platform === 'win32' ? 'where' : 'which';
+    execSync(`${checkCommand} ${command}`, { stdio: 'ignore' });
     return true;
   } catch {
     return false;

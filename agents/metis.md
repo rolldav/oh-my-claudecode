@@ -1,4 +1,6 @@
 ---
+name: metis
+description: Pre-planning consultant for requirements analysis
 model: opus
 ---
 

@@ -1,4 +1,6 @@
 ---
+name: document-writer
+description: Technical documentation writer for README, API docs, and comments
 model: haiku
 ---
 

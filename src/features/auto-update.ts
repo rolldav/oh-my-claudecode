@@ -127,9 +127,10 @@ export function getInstalledVersion(): VersionMetadata | null {
     // Try to detect version from package.json if installed via npm
     try {
       // Check if we can find the package in node_modules
-      const result = execSync('npm list -g oh-my-claude-sisyphus --json 2>/dev/null', {
+      const result = execSync('npm list -g oh-my-claude-sisyphus --json', {
         encoding: 'utf-8',
-        timeout: 5000
+        timeout: 5000,
+        stdio: 'pipe'
       });
       const data = JSON.parse(result);
       if (data.dependencies?.['oh-my-claude-sisyphus']?.version) {
@@ -298,8 +299,22 @@ export async function performUpdate(options?: {
 
     writeFileSync(tempScript, scriptContent, { mode: 0o755 });
 
-    // Execute the install script
+    // Execute the install script (platform-aware)
     try {
+      const isWindows = process.platform === 'win32';
+
+      if (isWindows) {
+        // On Windows, we cannot execute bash scripts directly
+        // The install.sh script should be converted to PowerShell or executed via WSL
+        // For now, throw an error with instructions
+        throw new Error(
+          'Automated updates are not yet supported on Windows. ' +
+          'Please run the installer manually:\n' +
+          '  npm install -g oh-my-claude-sisyphus\n' +
+          'Or visit: https://github.com/Yeachan-Heo/oh-my-claude-sisyphus'
+        );
+      }
+
       execSync(`bash "${tempScript}"`, {
         encoding: 'utf-8',
         stdio: options?.verbose ? 'inherit' : 'pipe',

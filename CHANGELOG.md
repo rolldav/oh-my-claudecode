@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1-beta] - 2026-01-13
+
+### Added
+- **Vitest test framework** with comprehensive test suite (231 tests)
+  - Model routing tests (100 tests)
+  - Hook system tests (78 tests)
+  - Skill activation tests (15 tests)
+  - Installer validation tests (28 tests)
+- **Windows native support improvements**
+  - Cross-platform command detection (which → where on Windows)
+  - Platform-aware auto-update with graceful Windows handling
+  - Fixed Unix-only shell redirects
+
+### Changed
+- Synced shell script installer with TypeScript installer
+- Removed deprecated orchestrator command from shell script
+- Removed separate skills directory (now via commands only)
+
+### Fixed
+- Cross-platform `which` command replaced with platform-aware detection
+- Auto-update now handles Windows gracefully with helpful error message
+- Shell script command count matches TypeScript installer (11 commands)
+- **Agent frontmatter** - Added missing `name` and `description` fields to all 11 agents
+  - Per Claude Code sub-agent specification requirements
+
+---
+
 ## [2.0.0-beta.2] - 2026-01-13
 
 ### 🧪 New: QA-Tester Agent for Interactive Testing

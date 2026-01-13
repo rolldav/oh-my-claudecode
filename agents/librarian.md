@@ -1,4 +1,6 @@
 ---
+name: librarian
+description: External Documentation & Reference Researcher
 model: sonnet
 ---
 

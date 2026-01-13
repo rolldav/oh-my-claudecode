@@ -2,9 +2,9 @@
 
 ![oh-my-claude-sisyphus](https://raw.githubusercontent.com/Yeachan-Heo/oh-my-claude-sisyphus-website/main/social-preview.png)
 
-# 🚀 v2.0.0-beta.2 - QA-Tester Agent
+# 🚀 v2.0.1-beta - Test Framework & Cross-Platform Updates
 
-[![Version](https://img.shields.io/badge/version-2.0.0--beta.2-ff6b6b)](https://github.com/Yeachan-Heo/oh-my-claude-sisyphus/releases)
+[![Version](https://img.shields.io/badge/version-2.0.1--beta-ff6b6b)](https://github.com/Yeachan-Heo/oh-my-claude-sisyphus/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Agents](https://img.shields.io/badge/Agents-12-ff0040)](https://github.com/Yeachan-Heo/oh-my-claude-sisyphus)
 [![Days Since Ban](https://img.shields.io/badge/Days%20Since%20Ban-0-00ffff)](https://github.com/Yeachan-Heo/oh-my-claude-sisyphus)

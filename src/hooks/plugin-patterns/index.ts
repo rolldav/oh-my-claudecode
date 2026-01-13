@@ -53,7 +53,8 @@ export function getFormatter(ext: string): string | null {
 export function isFormatterAvailable(command: string): boolean {
   try {
     const binary = command.split(' ')[0];
-    execSync(`which ${binary}`, { encoding: 'utf-8', stdio: 'pipe' });
+    const checkCommand = process.platform === 'win32' ? 'where' : 'which';
+    execSync(`${checkCommand} ${binary}`, { encoding: 'utf-8', stdio: 'pipe' });
     return true;
   } catch {
     return false;
@@ -126,7 +127,8 @@ export function lintFile(filePath: string): { success: boolean; message: string 
 
   try {
     const binary = linter.split(' ')[0];
-    execSync(`which ${binary}`, { encoding: 'utf-8', stdio: 'pipe' });
+    const checkCommand = process.platform === 'win32' ? 'where' : 'which';
+    execSync(`${checkCommand} ${binary}`, { encoding: 'utf-8', stdio: 'pipe' });
   } catch {
     return { success: true, message: `Linter ${linter} not available` };
   }
@@ -234,7 +236,8 @@ export function runTypeCheck(directory: string): { success: boolean; message: st
   }
 
   try {
-    execSync('which tsc', { encoding: 'utf-8', stdio: 'pipe' });
+    const checkCommand = process.platform === 'win32' ? 'where' : 'which';
+    execSync(`${checkCommand} tsc`, { encoding: 'utf-8', stdio: 'pipe' });
   } catch {
     return { success: true, message: 'TypeScript not installed' };
   }

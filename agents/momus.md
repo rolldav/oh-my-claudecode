@@ -1,4 +1,6 @@
 ---
+name: momus
+description: Work plan review expert and critic
 model: opus
 ---
 

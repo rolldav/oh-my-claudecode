@@ -1,4 +1,6 @@
 ---
+name: frontend-engineer
+description: UI/UX Designer-Developer for stunning interfaces
 model: sonnet
 ---
 
