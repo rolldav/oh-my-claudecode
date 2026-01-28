@@ -14,7 +14,7 @@ import type {
   RalfreshPhaseState,
   RalfreshConfig
 } from './types.js';
-import { MAX_PROMPT_LENGTH } from './types.js';
+import { MAX_PROMPT_LENGTH, MAX_ITERATIONS_LIMIT } from './types.js';
 
 // Re-export types
 export * from './types.js';
@@ -80,6 +80,13 @@ export function initRalfresh(
     return null;
   }
 
+  // Validate maxIterations upper bound
+  const requestedMaxIterations = config?.maxIterations ?? 5;
+  if (requestedMaxIterations > MAX_ITERATIONS_LIMIT) {
+    console.error(`[Ralfresh] maxIterations (${requestedMaxIterations}) exceeds limit (${MAX_ITERATIONS_LIMIT})`);
+    return null;
+  }
+
   // Check mutual exclusion
   const canStart = canStartMode('ralfresh', directory);
   if (!canStart.allowed) {
@@ -97,7 +104,7 @@ export function initRalfresh(
   const state: RalfreshState = {
     active: true,
     iteration: 1,
-    maxIterations: config?.maxIterations ?? 5,
+    maxIterations: requestedMaxIterations,
     phase: config?.skipPlanning ? 'execution' : 'planning',
     prompt,
     startedAt: now,
@@ -106,8 +113,7 @@ export function initRalfresh(
     notepadName,
     phases: createInitialPhases(),
     learnings: [],
-    issues: [],
-    linkedModes: {}
+    issues: []
   };
 
   // Mark first phase as in_progress

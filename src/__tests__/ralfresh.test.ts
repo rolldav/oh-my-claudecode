@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -169,13 +169,17 @@ describe('Ralfresh State Management', () => {
       expect(state?.completedAt).toBeNull();
     });
 
-    it('generates unique notepad name', async () => {
-      const state1 = initRalfresh(tempDir, 'test');
-      clearRalfreshState(tempDir);
-      // Add small delay to ensure different timestamp
-      await new Promise(resolve => setTimeout(resolve, 1100));
-      const state2 = initRalfresh(tempDir, 'test');
-      expect(state1?.notepadName).not.toBe(state2?.notepadName);
+    it('generates unique notepad name', () => {
+      vi.useFakeTimers();
+      try {
+        const state1 = initRalfresh(tempDir, 'test');
+        clearRalfreshState(tempDir);
+        vi.advanceTimersByTime(2000);
+        const state2 = initRalfresh(tempDir, 'test');
+        expect(state1?.notepadName).not.toBe(state2?.notepadName);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 
@@ -454,6 +458,56 @@ describe('Ralfresh State Management', () => {
       // Even if errors occur, function should return success/failure status
       const result = clearAllRalfreshSubModes(tempDir);
       expect(typeof result).toBe('boolean');
+    });
+
+    it('preserves global state when sessionId does not match', () => {
+      const fakeHome = join(tempDir, 'fake-home');
+      mkdirSync(fakeHome, { recursive: true });
+      vi.stubEnv('HOME', fakeHome);
+
+      try {
+        const globalStateDir = join(fakeHome, '.claude');
+        mkdirSync(globalStateDir, { recursive: true });
+
+        const testFile = join(globalStateDir, 'ultrawork-state.json');
+        const otherSessionState = {
+          session_id: 'other-session-123',
+          active: true
+        };
+        writeFileSync(testFile, JSON.stringify(otherSessionState));
+
+        clearAllRalfreshSubModes(tempDir, 'my-session-456', false);
+
+        expect(existsSync(testFile)).toBe(true);
+        const content = JSON.parse(readFileSync(testFile, 'utf-8'));
+        expect(content.session_id).toBe('other-session-123');
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('deletes global state when sessionId matches', () => {
+      const fakeHome = join(tempDir, 'fake-home-match');
+      mkdirSync(fakeHome, { recursive: true });
+      vi.stubEnv('HOME', fakeHome);
+
+      try {
+        const globalStateDir = join(fakeHome, '.claude');
+        mkdirSync(globalStateDir, { recursive: true });
+
+        const testFile = join(globalStateDir, 'ultrawork-state.json');
+        const matchingSessionState = {
+          session_id: 'my-session-456',
+          active: true
+        };
+        writeFileSync(testFile, JSON.stringify(matchingSessionState));
+
+        clearAllRalfreshSubModes(tempDir, 'my-session-456', false);
+
+        expect(existsSync(testFile)).toBe(false);
+      } finally {
+        vi.unstubAllEnvs();
+      }
     });
   });
 });

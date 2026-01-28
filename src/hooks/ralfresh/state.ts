@@ -10,6 +10,18 @@ import { join, resolve } from 'path';
 import type { RalfreshState } from './types.js';
 
 /**
+ * Valid ralfresh phases for state validation
+ */
+const VALID_PHASES = new Set<string>([
+  'planning',
+  'execution',
+  'review',
+  'assess',
+  'complete',
+  'failed'
+]);
+
+/**
  * Get the state file path for ralfresh
  *
  * TRUST BOUNDARY: The `directory` parameter is expected to come from trusted
@@ -31,7 +43,8 @@ function getStateFilePath(directory: string): string {
  * Ensure the .omc/state directory exists
  */
 function ensureStateDir(directory: string): void {
-  const stateDir = join(directory, '.omc', 'state');
+  const normalizedDir = resolve(directory);
+  const stateDir = join(normalizedDir, '.omc', 'state');
   if (!existsSync(stateDir)) {
     mkdirSync(stateDir, { recursive: true });
   }
@@ -49,6 +62,7 @@ function isValidRalfreshState(obj: unknown): obj is RalfreshState {
     typeof state.iteration === 'number' &&
     typeof state.maxIterations === 'number' &&
     typeof state.phase === 'string' &&
+    VALID_PHASES.has(state.phase) &&
     typeof state.prompt === 'string' &&
     typeof state.startedAt === 'string' &&
     typeof state.notepadName === 'string' &&

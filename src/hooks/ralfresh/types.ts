@@ -63,13 +63,6 @@ export interface RalfreshState {
   issues: string[];
   /** Path to current iteration's plan */
   planPath?: string;
-  /** Sub-modes linked to this ralfresh session */
-  linkedModes: {
-    ralph?: boolean;
-    ultrawork?: boolean;
-    swarm?: boolean;
-    ralplan?: boolean;
-  };
 }
 
 /**
@@ -136,3 +129,6 @@ export const MAX_ENTRY_LENGTH = 4096;
 
 /** Maximum character length for the original prompt */
 export const MAX_PROMPT_LENGTH = 32768; // 32KB reasonable limit
+
+/** Maximum allowed value for maxIterations (upper bound) */
+export const MAX_ITERATIONS_LIMIT = 50;

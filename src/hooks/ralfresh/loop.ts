@@ -21,9 +21,9 @@ const VALID_TRANSITIONS: Record<RalfreshPhase, RalfreshPhase[]> = {
   planning: ['execution'],
   execution: ['review'],
   review: ['assess'],
-  // NOTE: assess->planning is valid but prefer incrementRalfreshIteration()
-  // which resets all phases and clears sub-mode state for a fresh start.
-  assess: ['planning', 'complete', 'failed'],
+  // NOTE: assess->planning is NOT allowed directly. Use incrementRalfreshIteration()
+  // which properly increments iteration, resets phases, and clears sub-mode state.
+  assess: ['complete', 'failed'],
   complete: [],
   failed: []
 };
