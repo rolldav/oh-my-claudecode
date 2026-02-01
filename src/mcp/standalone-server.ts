@@ -120,7 +120,7 @@ function zodTypeToJsonSchema(zodType: z.ZodTypeAny): Record<string, unknown> {
 // Create the MCP server
 const server = new Server(
   {
-    name: 'omc-tools',
+    name: 't',
     version: '1.0.0',
   },
   {

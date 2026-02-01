@@ -18,12 +18,12 @@ describe('omc-tools-server', () => {
     });
 
     it('should have python_repl tool', () => {
-      expect(omcToolNames).toContain('mcp__omc-tools__python_repl');
+      expect(omcToolNames).toContain('mcp__t__python_repl');
     });
 
     it('should use correct MCP naming format', () => {
       omcToolNames.forEach(name => {
-        expect(name).toMatch(/^mcp__omc-tools__/);
+        expect(name).toMatch(/^mcp__t__/);
       });
     });
   });

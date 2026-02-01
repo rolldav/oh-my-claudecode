@@ -41,10 +41,10 @@ const sdkTools = allTools.map(t =>
 /**
  * In-process MCP server exposing all OMC custom tools
  *
- * Tools will be available as mcp__omc-tools__<tool_name>
+ * Tools will be available as mcp__t__<tool_name>
  */
 export const omcToolsServer = createSdkMcpServer({
-  name: "omc-tools",
+  name: "t",
   version: "1.0.0",
   tools: sdkTools
 });
@@ -52,7 +52,7 @@ export const omcToolsServer = createSdkMcpServer({
 /**
  * Tool names in MCP format for allowedTools configuration
  */
-export const omcToolNames = allTools.map(t => `mcp__omc-tools__${t.name}`);
+export const omcToolNames = allTools.map(t => `mcp__t__${t.name}`);
 
 /**
  * Get tool names filtered by category

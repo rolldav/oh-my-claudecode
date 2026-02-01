@@ -356,7 +356,7 @@ export function createSisyphusSession(options?: SisyphusOptions): SisyphusSessio
         agents,
         mcpServers: {
           ...toSdkMcpFormat(externalMcpServers),
-          'omc-tools': omcToolsServer as any
+          't': omcToolsServer as any
         },
         allowedTools,
         permissionMode: 'acceptEdits'
