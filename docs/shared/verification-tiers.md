@@ -54,7 +54,6 @@ Files that trigger `hasArchitecturalChanges`:
 - `**/schema.{ts,prisma,sql}`
 - `**/definitions.ts`
 - `**/types.ts`
-- `**/index.{ts,js}` (barrel exports)
 - `package.json`
 - `tsconfig.json`
 
@@ -63,11 +62,25 @@ Files that trigger `hasArchitecturalChanges`:
 Path patterns that trigger `hasSecurityImplications`:
 - `**/auth/**`
 - `**/security/**`
-- `**/permission*`
-- `**/credential*`
-- `**/secret*`
-- `**/token*`
+- `**/permissions?.{ts,js}`
+- `**/credentials?.{ts,js,json}`
+- `**/secrets?.{ts,js,json,yml,yaml}`
+- `**/tokens?.{ts,js,json}`
+- `**/passwords?.{ts,js,json}`
+- `**/oauth*`
+- `**/jwt*`
 - `**/.env*`
+
+## Evidence Types
+
+Required evidence for different claim types:
+
+| Claim | Required Evidence |
+|-------|-------------------|
+| "Fixed" | Test showing it passes now |
+| "Implemented" | lsp_diagnostics clean + build pass |
+| "Refactored" | All tests still pass |
+| "Debugged" | Root cause identified with file:line |
 
 ## Cost Comparison
 

@@ -63,6 +63,13 @@ This is the single source of truth for all agent tier information. All skill fil
 | Data analysis/stats | scientist | MEDIUM |
 | Quick data inspection | scientist-low | LOW |
 | Complex ML/hypothesis | scientist-high | HIGH |
+| Find symbol references | explore-high | HIGH |
+| Get file/workspace symbol outline | explore | LOW |
+| Structural code pattern search | explore | LOW |
+| Structural code transformation | executor-high | HIGH |
+| Project-wide type checking | build-fixer | MEDIUM |
+| Check single file for errors | executor-low | LOW |
+| Data analysis / computation | scientist | MEDIUM |
 
 ## Usage
 

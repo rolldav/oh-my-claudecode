@@ -104,8 +104,8 @@ export function detectSecurityImplications(files: string[]): boolean {
     /(^|[\/-])tokens?\.(ts|js|json)$/i,       // token.ts, auth-token.ts
     /\.(env|pem|key)(\.|$)/i,                 // .env, .env.local, cert.pem, private.key
     /(^|[\/-])passwords?\.(ts|js|json)$/i,    // password.ts
-    /(^|[\/-])oauth\b/i,                      // oauth.ts, oauth-config.ts
-    /(^|[\/-])jwt\b/i,                        // jwt.ts, jwt-utils.ts
+    /(^|[\/-])oauth/i,                        // oauth.ts, oauth-config.ts, oauth2.ts
+    /(^|[\/-])jwt/i,                          // jwt.ts, jwt-utils.ts, jwt_utils.ts
   ];
 
   return files.some((file) =>

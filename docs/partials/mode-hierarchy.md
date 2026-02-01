@@ -95,3 +95,26 @@ Valid combinations:
 Invalid combinations:
 - `autopilot ultrapilot` = Mutually exclusive (both are standalone)
 - `ecomode` alone = Not useful (needs an execution mode)
+
+## State Management
+
+### Standard Paths
+All mode state files use standardized locations:
+- Primary: `.omc/state/{name}.json` (local, per-project)
+- Global backup: `~/.omc/state/{name}.json` (global, session continuity)
+
+### Mode State Files
+| Mode | State File |
+|------|-----------|
+| ralph | `ralph-state.json` |
+| autopilot | `autopilot-state.json` |
+| ultrapilot | `ultrapilot-state.json` |
+| ultrawork | `ultrawork-state.json` |
+| ecomode | `ecomode-state.json` |
+| ultraqa | `ultraqa-state.json` |
+| pipeline | `pipeline-state.json` |
+| swarm | `swarm-summary.json` + `swarm-active.marker` |
+
+**Important:** Never store OMC state in `~/.claude/` - that directory is reserved for Claude Code itself.
+
+Legacy locations are auto-migrated on read.

@@ -296,6 +296,18 @@ describe('false-positive prevention', () => {
     it('DOES flag permissions.ts as security file', () => {
       expect(detectSecurityImplications(['src/permissions.ts'])).toBe(true);
     });
+
+    it('DOES flag oauth2.ts as security file', () => {
+      expect(detectSecurityImplications(['src/auth/oauth2.ts'])).toBe(true);
+    });
+
+    it('DOES flag oauth2-client.ts as security file', () => {
+      expect(detectSecurityImplications(['src/oauth2-client.ts'])).toBe(true);
+    });
+
+    it('DOES flag jwt_utils.ts as security file', () => {
+      expect(detectSecurityImplications(['src/jwt_utils.ts'])).toBe(true);
+    });
   });
 
   describe('detectArchitecturalChanges', () => {
