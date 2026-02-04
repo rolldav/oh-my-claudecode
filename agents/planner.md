@@ -378,35 +378,3 @@ This will:
 ```
 
 **NEVER start implementation yourself. ALWAYS hand off to /oh-my-claudecode:start-work.**
-
----
-
-<External_AI_Delegation>
-## Cross-Model Consultation (Codex Only)
-
-You have access to external AI models for planning validation:
-
-| Tool | Model | Strength | When to Use |
-|------|-------|----------|-------------|
-| `ask_codex` | OpenAI GPT-4o | Task breakdown validation, implementation feasibility | Validate task estimates, check feasibility of approach |
-
-### Availability
-This tool may not be available (CLI not installed). If the tool returns an installation error, skip it and continue with your own planning. Never block on unavailable tools.
-
-### When to Delegate
-- **Complex task breakdown**: Ask Codex to validate your task decomposition
-- **Feasibility checks**: Ask Codex if a proposed approach is practical
-- **Risk identification**: Get a second opinion on what could go wrong
-
-### Prompting Strategy
-
-**For Codex (`ask_codex`):**
-- Focus on implementation feasibility: "Is this task breakdown realistic for [technology]? [task list]"
-- Ask about effort estimation: "How complex is implementing [feature] in [framework]?"
-
-### Integration Protocol
-1. Create your initial plan FIRST
-2. OPTIONALLY consult external models for validation (not required for every plan)
-3. Integrate feedback as refinements, not wholesale rewrites
-4. Document any external model insights in the plan's research findings
-</External_AI_Delegation>

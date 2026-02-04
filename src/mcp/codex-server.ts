@@ -9,6 +9,7 @@ import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { spawn } from 'child_process';
 import { readFileSync } from 'fs';
 import { detectCodexCli } from './cli-detection.js';
+import { resolveSystemPrompt, buildPromptWithSystemContext } from './prompt-injection.js';
 
 // Default model can be overridden via environment variable
 const CODEX_DEFAULT_MODEL = process.env.OMC_CODEX_DEFAULT_MODEL || 'gpt-5.2';
@@ -53,7 +54,7 @@ function parseCodexOutput(output: string): string {
  */
 function executeCodex(prompt: string, model: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const args = ['exec', '-m', model, '--json'];
+    const args = ['exec', '-m', model, '--json', '--full-auto'];
     const child = spawn('codex', args, {
       timeout: CODEX_TIMEOUT,
       stdio: ['pipe', 'pipe', 'pipe']
@@ -96,12 +97,16 @@ const askCodexTool = tool(
     prompt: { type: "string", description: "The prompt to send to Codex" },
     model: { type: "string", description: `Codex model to use (default: ${CODEX_DEFAULT_MODEL}). Set OMC_CODEX_DEFAULT_MODEL env var to change default. Options include: gpt-4o, gpt-4o-mini, o3-mini, o4-mini` },
     context_files: { type: "array", items: { type: "string" }, description: "File paths to include as context (contents will be prepended to prompt)" },
+    system_prompt: { type: "string", description: "System prompt to inject - sets the personality/guidelines for Codex. Takes precedence over agent_role." },
+    agent_role: { type: "string", description: "Agent role shortcut (e.g. 'architect', 'critic', 'planner'). Loads the agent's system prompt automatically. Ignored if system_prompt is provided." },
   } as any,
   async (args: any) => {
-    const { prompt, model = CODEX_DEFAULT_MODEL, context_files } = args as {
+    const { prompt, model = CODEX_DEFAULT_MODEL, context_files, system_prompt, agent_role } = args as {
       prompt: string;
       model?: string;
       context_files?: string[];
+      system_prompt?: string;
+      agent_role?: string;
     };
 
     // Check CLI availability
@@ -115,18 +120,23 @@ const askCodexTool = tool(
       };
     }
 
-    // Build prompt with file context
-    let fullPrompt = prompt;
+    // Resolve system prompt from explicit param or agent role
+    const resolvedSystemPrompt = resolveSystemPrompt(system_prompt, agent_role);
+
+    // Build file context
+    let fileContext: string | undefined;
     if (context_files && context_files.length > 0) {
-      const fileContents = context_files.map(f => {
+      fileContext = context_files.map(f => {
         try {
           return `--- File: ${f} ---\n${readFileSync(f, 'utf-8')}`;
         } catch (err) {
           return `--- File: ${f} --- (Error reading: ${(err as Error).message})`;
         }
       }).join('\n\n');
-      fullPrompt = `${fileContents}\n\n${prompt}`;
     }
+
+    // Combine: system prompt > file context > user prompt
+    const fullPrompt = buildPromptWithSystemContext(prompt, fileContext, resolvedSystemPrompt);
 
     try {
       const response = await executeCodex(fullPrompt, model);

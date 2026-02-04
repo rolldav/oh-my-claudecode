@@ -9,6 +9,7 @@ import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { spawn } from 'child_process';
 import { readFileSync } from 'fs';
 import { detectGeminiCli } from './cli-detection.js';
+import { resolveSystemPrompt, buildPromptWithSystemContext } from './prompt-injection.js';
 
 // Default model can be overridden via environment variable
 const GEMINI_DEFAULT_MODEL = process.env.OMC_GEMINI_DEFAULT_MODEL || 'gemini-3-pro';
@@ -19,7 +20,10 @@ const GEMINI_TIMEOUT = parseInt(process.env.OMC_GEMINI_TIMEOUT || '120000', 10);
  */
 function executeGemini(prompt: string, model?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const args = model ? ['--model', model] : [];
+    const args = ['--yolo'];
+    if (model) {
+      args.push('--model', model);
+    }
     const child = spawn('gemini', args, {
       timeout: GEMINI_TIMEOUT,
       stdio: ['pipe', 'pipe', 'pipe']
@@ -62,12 +66,16 @@ const askGeminiTool = tool(
     prompt: { type: "string", description: "The prompt to send to Gemini" },
     model: { type: "string", description: `Gemini model to use (default: ${GEMINI_DEFAULT_MODEL}). Set OMC_GEMINI_DEFAULT_MODEL env var to change default. Options include: gemini-2.5-pro, gemini-2.5-flash` },
     files: { type: "array", items: { type: "string" }, description: "File paths for Gemini to analyze (leverages 1M token context window)" },
+    system_prompt: { type: "string", description: "System prompt to inject - sets the personality/guidelines for Gemini. Takes precedence over agent_role." },
+    agent_role: { type: "string", description: "Agent role shortcut (e.g. 'designer', 'architect', 'critic'). Loads the agent's system prompt automatically. Ignored if system_prompt is provided." },
   } as any,
   async (args: any) => {
-    const { prompt, model = GEMINI_DEFAULT_MODEL, files } = args as {
+    const { prompt, model = GEMINI_DEFAULT_MODEL, files, system_prompt, agent_role } = args as {
       prompt: string;
       model?: string;
       files?: string[];
+      system_prompt?: string;
+      agent_role?: string;
     };
 
     // Check CLI availability
@@ -81,18 +89,23 @@ const askGeminiTool = tool(
       };
     }
 
-    // Build prompt with file context
-    let fullPrompt = prompt;
+    // Resolve system prompt from explicit param or agent role
+    const resolvedSystemPrompt = resolveSystemPrompt(system_prompt, agent_role);
+
+    // Build file context
+    let fileContext: string | undefined;
     if (files && files.length > 0) {
-      const fileContents = files.map(f => {
+      fileContext = files.map(f => {
         try {
           return `--- File: ${f} ---\n${readFileSync(f, 'utf-8')}`;
         } catch (err) {
           return `--- File: ${f} --- (Error reading: ${(err as Error).message})`;
         }
       }).join('\n\n');
-      fullPrompt = `${fileContents}\n\n${prompt}`;
     }
+
+    // Combine: system prompt > file context > user prompt
+    const fullPrompt = buildPromptWithSystemContext(prompt, fileContext, resolvedSystemPrompt);
 
     try {
       const response = await executeGemini(fullPrompt, model);

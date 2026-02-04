@@ -17,6 +17,12 @@ export const OmcPaths = {
   RESEARCH: '.omc/research',
   NOTEPAD: '.omc/notepad.md',
   PROJECT_MEMORY: '.omc/project-memory.json',
+  DRAFTS: '.omc/drafts',
+  NOTEPADS: '.omc/notepads',
+  LOGS: '.omc/logs',
+  SCIENTIST: '.omc/scientist',
+  AUTOPILOT: '.omc/autopilot',
+  SKILLS: '.omc/skills',
 } as const;
 
 /** Cache for worktree root to avoid repeated git calls */
@@ -184,7 +190,7 @@ export function resolveResearchPath(name: string, worktreeRoot?: string): string
  */
 export function resolveLogsPath(worktreeRoot?: string): string {
   const root = worktreeRoot || getWorktreeRoot() || process.cwd();
-  return join(root, '.omc', 'logs');
+  return join(root, OmcPaths.LOGS);
 }
 
 /**
@@ -194,7 +200,7 @@ export function resolveLogsPath(worktreeRoot?: string): string {
 export function resolveWisdomPath(planName: string, worktreeRoot?: string): string {
   validatePath(planName);
   const root = worktreeRoot || getWorktreeRoot() || process.cwd();
-  return join(root, '.omc', 'notepads', planName);
+  return join(root, OmcPaths.NOTEPADS, planName);
 }
 
 /**
@@ -219,9 +225,9 @@ export function ensureAllOmcDirs(worktreeRoot?: string): void {
     OmcPaths.STATE,
     OmcPaths.PLANS,
     OmcPaths.RESEARCH,
-    join('.omc', 'logs'),
-    join('.omc', 'notepads'),
-    join('.omc', 'drafts'),
+    OmcPaths.LOGS,
+    OmcPaths.NOTEPADS,
+    OmcPaths.DRAFTS,
   ];
   for (const dir of dirs) {
     const fullPath = join(root, dir);

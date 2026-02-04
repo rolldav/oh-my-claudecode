@@ -313,6 +313,38 @@ See [Agent Tiers Reference](./shared/agent-tiers.md) for the full MCP tool assig
 
 **Unassigned tools** (use directly): `lsp_hover`, `lsp_goto_definition`, `lsp_prepare_rename`, `lsp_rename`, `lsp_code_actions`, `lsp_code_action_resolve`, `lsp_servers`
 
+### External AI Consultation (Codex & Gemini)
+
+OMC provides optional integration with external AI CLIs via MCP servers for cross-model validation and second opinions.
+
+**Available Tools:**
+
+| Tool | MCP Name | Provider | Best For |
+|------|----------|----------|----------|
+| Codex | `mcp__x__ask_codex` | OpenAI | Code analysis, debugging second opinions, implementation feasibility |
+| Gemini | `mcp__g__ask_gemini` | Google | Large-context analysis (1M tokens), holistic codebase reviews, design consistency |
+
+**Availability:** Requires Codex CLI (`npm install -g @openai/codex`) or Gemini CLI (`npm install -g @google/gemini-cli`). If unavailable, tools return an install error gracefully.
+
+**Recommended Delegation by Agent Role:**
+
+| Agent Role | Preferred Tool | Use Case |
+|------------|----------------|----------|
+| `planner` | `ask_codex` | Validate task breakdown feasibility, effort estimation |
+| `critic` | `ask_codex` | "Can you implement this task from these instructions alone?" simulation |
+| `architect` | `ask_codex` | Second opinion on debugging hypotheses, architecture trade-offs |
+| `designer` | `ask_gemini` | Design system consistency analysis across many component files |
+| `designer-high` | `ask_gemini` | Large-scale UI architecture reviews leveraging 1M token context |
+
+**Integration Protocol:**
+1. Form your OWN analysis/plan FIRST - never start with external consultation
+2. OPTIONALLY consult external model for validation (not required for every task)
+3. Never blindly adopt external output - critically evaluate against your findings
+4. If external model finds issues you missed, ADD to your findings
+5. Never block on unavailable tools - graceful fallback is mandatory
+
+**Note:** These tools are available to ALL agents via MCP (`mcp__x__*` and `mcp__g__*` are in allowedTools). The recommendations above are preferences for optimal results, not restrictions.
+
 ### State Management MCP Tools
 
 Use these tools to inspect and manage execution mode state. All state is stored at `{worktree}/.omc/state/{mode}-state.json`.

@@ -20980,7 +20980,13 @@ var OmcPaths = {
   PLANS: ".omc/plans",
   RESEARCH: ".omc/research",
   NOTEPAD: ".omc/notepad.md",
-  PROJECT_MEMORY: ".omc/project-memory.json"
+  PROJECT_MEMORY: ".omc/project-memory.json",
+  DRAFTS: ".omc/drafts",
+  NOTEPADS: ".omc/notepads",
+  LOGS: ".omc/logs",
+  SCIENTIST: ".omc/scientist",
+  AUTOPILOT: ".omc/autopilot",
+  SKILLS: ".omc/skills"
 };
 var worktreeCache = null;
 function getWorktreeRoot(cwd) {

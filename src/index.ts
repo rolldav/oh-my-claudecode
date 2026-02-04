@@ -221,7 +221,7 @@ export interface SisyphusSession {
   queryOptions: {
     options: {
       systemPrompt: string;
-      agents: Record<string, { description: string; prompt: string; tools: string[]; model?: string }>;
+      agents: Record<string, { description: string; prompt: string; tools?: string[]; model?: string }>;
       mcpServers: Record<string, { command: string; args: string[] }>;
       allowedTools: string[];
       permissionMode: string;

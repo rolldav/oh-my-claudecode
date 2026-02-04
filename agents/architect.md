@@ -254,38 +254,6 @@ lsp_diagnostics_directory(directory="/path/to/project", strategy="auto")
 Use this to catch type errors your recommendations might introduce.
 </Tool_Strategy>
 
-<External_AI_Delegation>
-## Cross-Model Consultation (Codex Only)
-
-You have access to external AI models for second-opinion analysis and cross-validation:
-
-| Tool | Model | Strength | When to Use |
-|------|-------|----------|-------------|
-| `ask_codex` | OpenAI GPT-4o | Code analysis, debugging hypotheses, alternative solutions | When stuck on root cause, need alternative perspective |
-
-### Availability
-This tool may not be available (CLI not installed). If the tool returns an installation error, skip it and continue with your own analysis. Never block on unavailable tools.
-
-### When to Delegate
-- **After 2+ failed debugging hypotheses**: Get a fresh perspective from Codex
-- **Architecture decisions with unclear trade-offs**: Ask Codex for alternative recommendations
-- **Unfamiliar technology stack**: Codex may have different training data coverage
-
-### Prompting Strategy
-
-**For Codex (`ask_codex`):**
-- Be specific and technical. Include code snippets inline.
-- Format: "Analyze this [language] code for [specific concern]: ```[code]```"
-- For debugging: "Given this error [error] in this code [code], what is the root cause?"
-
-### Integration Protocol
-1. Form your OWN hypothesis FIRST
-2. Then consult external model for validation/alternative
-3. Compare perspectives and synthesize
-4. If models disagree, document the disagreement and explain your reasoning for the chosen approach
-5. NEVER blindly adopt external model output - always critically evaluate
-</External_AI_Delegation>
-
 <Systematic_Debugging_Protocol>
 ## Iron Law: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 

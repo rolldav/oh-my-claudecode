@@ -32,3 +32,11 @@ export {
   geminiMcpServer,
   geminiToolNames
 } from './gemini-server.js';
+
+// Prompt injection helper for system prompt support
+export {
+  resolveSystemPrompt,
+  buildPromptWithSystemContext,
+  VALID_AGENT_ROLES
+} from './prompt-injection.js';
+export type { AgentRole } from './prompt-injection.js';
