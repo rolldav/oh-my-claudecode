@@ -10,6 +10,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { OmcPaths } from '../../lib/worktree-paths.js';
 import {
   readAutopilotState,
   writeAutopilotState,
@@ -229,8 +230,8 @@ function generateContinuationPrompt(
 
   const phasePrompt = getPhasePrompt(state.phase, {
     idea: state.originalIdea,
-    specPath: state.expansion.spec_path || '.omc/autopilot/spec.md',
-    planPath: state.planning.plan_path || '.omc/plans/autopilot-impl.md'
+    specPath: state.expansion.spec_path || `${OmcPaths.AUTOPILOT}/spec.md`,
+    planPath: state.planning.plan_path || `${OmcPaths.PLANS}/autopilot-impl.md`
   });
 
   const continuationPrompt = `<autopilot-continuation>

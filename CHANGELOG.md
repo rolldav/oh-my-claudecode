@@ -5,11 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.9.9] - Unreleased
+## [4.0.0] - Unreleased
 
 ### Breaking Changes
 
 - **Node.js 20 Required** - Minimum Node.js version increased from 18 to 20. Users on Node.js 18 must upgrade before using this version. This aligns with Node.js LTS schedule (Node 18 EOL: April 2025).
+
+### Refactored
+
+- **MCP Core Modules** - Extracted shared Codex/Gemini business logic into `codex-core.ts` and `gemini-core.ts`, eliminating code duplication between in-process SDK servers and standalone stdio servers
+- **Slim Server Wrappers** - Reduced `codex-server.ts`, `codex-standalone-server.ts`, `gemini-server.ts`, and `gemini-standalone-server.ts` to thin transport wrappers (~40-70 lines each)
+- **Build Scripts** - Updated esbuild scripts with global npm module resolution banner for proper native module loading
+
+### Changed
+
+- **Codex/Gemini Agent Routing** - Codex (`ask_codex`) now recommended only for reviewer and planning agents (architect, planner, critic, analyst, code-reviewer, security-reviewer, tdd-guide). Gemini (`ask_gemini`) recommended only for design agents (designer, writer, vision). All other agents have no external consultation recommendation.
+- **CLAUDE.md Compacted** - Reduced from 679 to 389 lines (43% smaller). All 33 agents, all skills, and all MCP tools with descriptions now inline. Removed external doc references and redundant troubleshooting section.
+- **Agent Tiers Reference** - Added External AI Consultation section with strict Codex/Gemini routing per agent domain
 
 ### Performance
 
