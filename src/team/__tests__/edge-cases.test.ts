@@ -181,18 +181,18 @@ describe('task-file-ops edge cases', () => {
   });
 
   describe('findNextTask returns null for nonexistent team', () => {
-    it('returns null gracefully when team directory missing', () => {
-      expect(findNextTask('completely_nonexistent_team_xyz', 'w1')).toBeNull();
+    it('returns null gracefully when team directory missing', async () => {
+      expect(await findNextTask('completely_nonexistent_team_xyz', 'w1')).toBeNull();
     });
   });
 
   describe('findNextTask with in_progress task', () => {
-    it('skips tasks that are already in_progress', () => {
+    it('skips tasks that are already in_progress', async () => {
       writeTaskHelper({
         id: '1', subject: 'T', description: 'D',
         status: 'in_progress', owner: 'w1', blocks: [], blockedBy: [],
       });
-      expect(findNextTask(EDGE_TEAM_TASKS, 'w1')).toBeNull();
+      expect(await findNextTask(EDGE_TEAM_TASKS, 'w1')).toBeNull();
     });
   });
 
@@ -273,11 +273,11 @@ describe('task-file-ops edge cases', () => {
   });
 
   describe('findNextTask with multiple pending tasks returns first by sorted ID', () => {
-    it('returns the lowest-sorted pending task', () => {
+    it('returns the lowest-sorted pending task', async () => {
       writeTaskHelper({ id: '3', subject: 'T3', description: 'D', status: 'pending', owner: 'w1', blocks: [], blockedBy: [] });
       writeTaskHelper({ id: '1', subject: 'T1', description: 'D', status: 'pending', owner: 'w1', blocks: [], blockedBy: [] });
       writeTaskHelper({ id: '2', subject: 'T2', description: 'D', status: 'pending', owner: 'w1', blocks: [], blockedBy: [] });
-      const result = findNextTask(EDGE_TEAM_TASKS, 'w1');
+      const result = await findNextTask(EDGE_TEAM_TASKS, 'w1');
       expect(result?.id).toBe('1');
     });
   });

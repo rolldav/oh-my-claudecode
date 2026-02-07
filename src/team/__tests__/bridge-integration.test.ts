@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, statSync, realpathSync } from 'fs';
+import { join, resolve } from 'path';
 import { homedir, tmpdir } from 'os';
 import type { BridgeConfig, TaskFile, OutboxMessage } from '../types.js';
 import { readTask, updateTask } from '../task-file-ops.js';
 import { checkShutdownSignal, writeShutdownSignal } from '../inbox-outbox.js';
 import { writeHeartbeat, readHeartbeat } from '../heartbeat.js';
+import { sanitizeName } from '../tmux-session.js';
 
 const TEST_TEAM = 'test-bridge-int';
 const TASKS_DIR = join(homedir(), '.claude', 'tasks', TEST_TEAM);
@@ -140,12 +141,82 @@ describe('Bridge Integration', () => {
 
       // Task 2 should not be found — blocker is pending
       const { findNextTask } = await import('../task-file-ops.js');
-      expect(findNextTask(TEST_TEAM, 'worker1')).toBeNull();
+      expect(await findNextTask(TEST_TEAM, 'worker1')).toBeNull();
 
       // Complete blocker
       updateTask(TEST_TEAM, '1', { status: 'completed' });
-      const next = findNextTask(TEST_TEAM, 'worker1');
+      const next = await findNextTask(TEST_TEAM, 'worker1');
       expect(next?.id).toBe('2');
     });
+  });
+});
+
+describe('validateBridgeWorkingDirectory logic', () => {
+  // validateBridgeWorkingDirectory is private in bridge-entry.ts, so we
+  // replicate its core checks to validate the security properties.
+
+  function validateBridgeWorkingDirectory(workingDirectory: string): void {
+    let stat;
+    try {
+      stat = statSync(workingDirectory);
+    } catch {
+      throw new Error(`workingDirectory does not exist: ${workingDirectory}`);
+    }
+    if (!stat.isDirectory()) {
+      throw new Error(`workingDirectory is not a directory: ${workingDirectory}`);
+    }
+    const resolved = realpathSync(workingDirectory);
+    const home = homedir();
+    if (!resolved.startsWith(home + '/') && resolved !== home) {
+      throw new Error(`workingDirectory is outside home directory: ${resolved}`);
+    }
+  }
+
+  it('rejects /etc as working directory', () => {
+    expect(() => validateBridgeWorkingDirectory('/etc')).toThrow('outside home directory');
+  });
+
+  it('rejects /tmp as working directory (outside home)', () => {
+    // /tmp is typically outside $HOME
+    const home = homedir();
+    if (!'/tmp'.startsWith(home)) {
+      expect(() => validateBridgeWorkingDirectory('/tmp')).toThrow('outside home directory');
+    }
+  });
+
+  it('accepts a valid directory under home', () => {
+    const testDir = join(homedir(), '.claude', '__bridge_validate_test__');
+    mkdirSync(testDir, { recursive: true });
+    try {
+      expect(() => validateBridgeWorkingDirectory(testDir)).not.toThrow();
+    } finally {
+      rmSync(testDir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects nonexistent directory', () => {
+    expect(() => validateBridgeWorkingDirectory('/nonexistent/path/xyz'))
+      .toThrow('does not exist');
+  });
+});
+
+describe('Config name sanitization', () => {
+  it('sanitizeName strips unsafe characters from team names', () => {
+    expect(sanitizeName('my-team')).toBe('my-team');
+    expect(sanitizeName('team@name!')).toBe('teamname');
+  });
+
+  it('sanitizeName strips unsafe characters from worker names', () => {
+    expect(sanitizeName('worker-1')).toBe('worker-1');
+    expect(sanitizeName('worker;rm -rf /')).toBe('workerrm-rf');
+  });
+
+  it('config names are sanitized before use', () => {
+    // Simulates what bridge-entry.ts does with config
+    const config = makeConfig({ teamName: 'unsafe!team@', workerName: 'bad$worker' });
+    config.teamName = sanitizeName(config.teamName);
+    config.workerName = sanitizeName(config.workerName);
+    expect(config.teamName).toBe('unsafeteam');
+    expect(config.workerName).toBe('badworker');
   });
 });

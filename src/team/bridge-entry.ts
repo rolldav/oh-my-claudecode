@@ -5,12 +5,47 @@
 //
 // Config via temp file, not inline JSON argument.
 
-import { readFileSync } from 'fs';
+import { readFileSync, statSync, realpathSync } from 'fs';
 import { resolve } from 'path';
+import { homedir } from 'os';
 import type { BridgeConfig } from './types.js';
 import { runBridge } from './mcp-team-bridge.js';
 import { deleteHeartbeat } from './heartbeat.js';
 import { unregisterMcpWorker } from './team-registration.js';
+import { getWorktreeRoot } from '../lib/worktree-paths.js';
+import { sanitizeName } from './tmux-session.js';
+
+/**
+ * Validate the bridge working directory is safe:
+ * - Must exist and be a directory
+ * - Must resolve (via realpathSync) to a path under the user's home directory
+ * - Must be inside a git worktree
+ */
+function validateBridgeWorkingDirectory(workingDirectory: string): void {
+  // Check exists and is directory
+  let stat;
+  try {
+    stat = statSync(workingDirectory);
+  } catch {
+    throw new Error(`workingDirectory does not exist: ${workingDirectory}`);
+  }
+  if (!stat.isDirectory()) {
+    throw new Error(`workingDirectory is not a directory: ${workingDirectory}`);
+  }
+
+  // Resolve symlinks and verify under homedir
+  const resolved = realpathSync(workingDirectory);
+  const home = homedir();
+  if (!resolved.startsWith(home + '/') && resolved !== home) {
+    throw new Error(`workingDirectory is outside home directory: ${resolved}`);
+  }
+
+  // Must be inside a git worktree
+  const root = getWorktreeRoot(workingDirectory);
+  if (!root) {
+    throw new Error(`workingDirectory is not inside a git worktree: ${workingDirectory}`);
+  }
+}
 
 function main(): void {
   // Parse --config flag
@@ -21,6 +56,13 @@ function main(): void {
   }
 
   const configPath = resolve(process.argv[configIdx + 1]);
+
+  // Validate config path is from a trusted location
+  const home = homedir();
+  if (!configPath.startsWith(home + '/.claude/') && !configPath.includes('/.omc/')) {
+    console.error(`Config path must be under ~/.claude/ or contain /.omc/: ${configPath}`);
+    process.exit(1);
+  }
 
   let config: BridgeConfig;
   try {
@@ -40,9 +82,21 @@ function main(): void {
     }
   }
 
+  // Sanitize team and worker names (prevent tmux injection)
+  config.teamName = sanitizeName(config.teamName);
+  config.workerName = sanitizeName(config.workerName);
+
   // Validate provider
   if (config.provider !== 'codex' && config.provider !== 'gemini') {
     console.error(`Invalid provider: ${config.provider}. Must be 'codex' or 'gemini'.`);
+    process.exit(1);
+  }
+
+  // Validate working directory before use
+  try {
+    validateBridgeWorkingDirectory(config.workingDirectory);
+  } catch (err) {
+    console.error(`[bridge] Invalid workingDirectory: ${(err as Error).message}`);
     process.exit(1);
   }
 
@@ -51,6 +105,7 @@ function main(): void {
   config.taskTimeoutMs = config.taskTimeoutMs || 600_000;
   config.maxConsecutiveErrors = config.maxConsecutiveErrors || 3;
   config.outboxMaxLines = config.outboxMaxLines || 500;
+  config.maxRetries = config.maxRetries || 5;
 
   // Signal handlers for graceful cleanup on external termination
   for (const sig of ['SIGINT', 'SIGTERM'] as const) {

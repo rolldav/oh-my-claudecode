@@ -8,19 +8,11 @@
  * Files stored at: .omc/state/team-bridge/{team}/{worker}.heartbeat.json
  */
 
-import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, renameSync, rmdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { readFileSync, existsSync, readdirSync, unlinkSync, rmdirSync } from 'fs';
+import { join } from 'path';
 import type { HeartbeatData } from './types.js';
 import { sanitizeName } from './tmux-session.js';
-
-/** Atomic write helper */
-function atomicWriteJson(filePath: string, data: unknown): void {
-  const dir = dirname(filePath);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const tmpPath = filePath + '.tmp.' + process.pid;
-  writeFileSync(tmpPath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
-  renameSync(tmpPath, filePath);
-}
+import { atomicWriteJson } from './fs-utils.js';
 
 /** Heartbeat file path */
 function heartbeatPath(workingDirectory: string, teamName: string, workerName: string): string {

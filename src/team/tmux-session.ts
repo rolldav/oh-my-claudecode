@@ -32,6 +32,9 @@ export function sanitizeName(name: string): string {
   if (sanitized.length === 0) {
     throw new Error(`Invalid name: "${name}" contains no valid characters (alphanumeric or hyphen)`);
   }
+  if (sanitized.length < 2) {
+    throw new Error(`Invalid name: "${name}" too short after sanitization (minimum 2 characters)`);
+  }
   // Truncate to safe length for tmux session names
   return sanitized.slice(0, 50);
 }
@@ -42,7 +45,7 @@ export function sessionName(teamName: string, workerName: string): string {
 }
 
 /** Create a detached tmux session. Kills stale session with same name first. */
-export function createSession(teamName: string, workerName: string): string {
+export function createSession(teamName: string, workerName: string, workingDirectory?: string): string {
   const name = sessionName(teamName, workerName);
 
   // Kill existing session if present (stale from previous run)
@@ -51,7 +54,11 @@ export function createSession(teamName: string, workerName: string): string {
   } catch { /* ignore — session may not exist */ }
 
   // Create detached session with reasonable terminal size
-  execFileSync('tmux', ['new-session', '-d', '-s', name, '-x', '200', '-y', '50'], { stdio: 'pipe', timeout: 5000 });
+  const args = ['new-session', '-d', '-s', name, '-x', '200', '-y', '50'];
+  if (workingDirectory) {
+    args.push('-c', workingDirectory);
+  }
+  execFileSync('tmux', args, { stdio: 'pipe', timeout: 5000 });
 
   return name;
 }
