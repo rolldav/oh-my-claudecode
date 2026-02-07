@@ -37,7 +37,7 @@ RULE 5: ALWAYS consult official documentation before implementing with SDKs/fram
 | **UI/frontend work** | NEVER | designer |
 | **Documentation** | NEVER | writer |
 | **Deep analysis** | NEVER | architect / analyst |
-| **Codebase exploration** | NEVER | explore / explore-medium |
+| **Codebase exploration** | NEVER | explore / explore-high |
 | **Research tasks** | NEVER | researcher |
 | **Data analysis** | NEVER | scientist |
 | **Strategic planning** | NEVER | planner |
@@ -65,7 +65,7 @@ Delegate via: `Task(subagent_type="oh-my-claudecode:executor", model="sonnet", p
 
 ---
 
-## All 33 Agents
+## All 34 Agents
 
 Always use `oh-my-claudecode:` prefix when calling via Task tool.
 
@@ -76,20 +76,20 @@ Always use `oh-my-claudecode:` prefix when calling via Task tool.
 | **Analysis** | `architect-low` | `architect-medium` | `architect` |
 | **Execution** | `executor-low` | `executor` | `executor-high` |
 | **Deep Work** | - | - | `deep-executor` |
-| **Search** | `explore` | `explore-medium` | `explore-high` |
-| **Research** | `researcher-low` | `researcher` | - |
+| **Search** | `explore` | - | `explore-high` |
+| **Research** | - | `researcher` | - |
 | **Frontend** | `designer-low` | `designer` | `designer-high` |
 | **Docs** | `writer` | - | - |
 | **Visual** | - | `vision` | - |
 | **Planning** | - | - | `planner` |
 | **Critique** | - | - | `critic` |
 | **Pre-Planning** | - | - | `analyst` |
-| **Testing** | - | `qa-tester` | `qa-tester-high` |
+| **Testing** | - | `qa-tester` | - |
 | **Security** | `security-reviewer-low` | - | `security-reviewer` |
-| **Build** | `build-fixer-low` | `build-fixer` | - |
+| **Build** | - | `build-fixer` | - |
 | **TDD** | `tdd-guide-low` | `tdd-guide` | - |
-| **Code Review** | `code-reviewer-low` | - | `code-reviewer` |
-| **Data Science** | `scientist-low` | `scientist` | `scientist-high` |
+| **Code Review** | - | - | `code-reviewer` |
+| **Data Science** | - | `scientist` | `scientist-high` |
 | **Git** | - | `git-master` | - |
 
 ### Agent Selection by Task
@@ -97,7 +97,7 @@ Always use `oh-my-claudecode:` prefix when calling via Task tool.
 | Task | Agent | Tier |
 |------|-------|------|
 | Quick code lookup | `explore` | LOW |
-| Find files/patterns | `explore`, `explore-medium` | LOW/MED |
+| Find files/patterns | `explore` | LOW |
 | Complex architectural search | `explore-high` | HIGH |
 | Simple code change | `executor-low` | LOW |
 | Feature implementation | `executor` | MED |
@@ -116,13 +116,10 @@ Always use `oh-my-claudecode:` prefix when calling via Task tool.
 | Security review | `security-reviewer` | HIGH |
 | Quick security scan | `security-reviewer-low` | LOW |
 | Fix build errors | `build-fixer` | MED |
-| Simple build fix | `build-fixer-low` | LOW |
 | TDD workflow | `tdd-guide` | MED |
 | Quick test suggestions | `tdd-guide-low` | LOW |
 | Code review | `code-reviewer` | HIGH |
-| Quick code check | `code-reviewer-low` | LOW |
 | Data analysis/stats | `scientist` | MED |
-| Quick data inspection | `scientist-low` | LOW |
 | Complex ML/hypothesis | `scientist-high` | HIGH |
 | Complex autonomous work | `deep-executor` | HIGH |
 | Git operations | `git-master` | MED |
@@ -141,6 +138,15 @@ Always use `oh-my-claudecode:` prefix when calling via Task tool.
 
 ---
 
+## Commands vs Skills
+
+- **Commands** are thin routing stubs that delegate to agents or MCPs with minimal logic (e.g., `analyze`, `git-master`, `frontend-ui-ux`). They detect intent and route — nothing more.
+- **Skills** are substantive workflows with state management, multi-step orchestration, and complex logic (e.g., `autopilot`, `ralph`, `plan`, `ultrawork`).
+
+Commands live alongside skills in the `skills/` directory but contain only a `SKILL.md` that routes to the appropriate agent or MCP tool. Skills contain full implementation logic, often with hooks, state files, and multi-agent coordination.
+
+---
+
 ## All Skills
 
 ### Execution Modes
@@ -152,7 +158,7 @@ Always use `oh-my-claudecode:` prefix when calling via Task tool.
 | `ultrawork` | "ulw", "ultrawork" | Maximum parallelism with parallel agent orchestration |
 | `ultrapilot` | "ultrapilot", "parallel build" | Parallel autopilot with file ownership partitioning (up to 5x faster) |
 | `ecomode` | "eco", "ecomode", "efficient", "budget" | Token-efficient parallel execution using Haiku and Sonnet agents |
-| `team` | "team", "coordinated team" | N coordinated agents using Claude Code native teams (replaces swarm) |
+| `team` | "team", "coordinated team" | N coordinated agents using Claude Code native teams |
 | `pipeline` | "pipeline", "chain agents" | Sequential agent chaining with data passing between stages |
 | `ultraqa` | (activated by autopilot) | QA cycling workflow — test, verify, fix, repeat until goal met |
 
@@ -160,9 +166,7 @@ Always use `oh-my-claudecode:` prefix when calling via Task tool.
 
 | Skill | Trigger | Description |
 |-------|---------|-------------|
-| `plan` | "plan this", "plan the" | Strategic planning with optional interview workflow |
-| `ralplan` | "ralplan" | Iterative planning with Planner, Architect, and Critic until consensus |
-| `review` | "review plan" | Review a plan with Critic |
+| `plan` | "plan this", "plan the" | Strategic planning with optional interview workflow. Supports `--consensus` (iterative Planner/Architect/Critic loop) and `--review` (Critic review) modes. |
 | `analyze` | "analyze", "debug", "investigate" | Deep analysis and investigation |
 
 ### Search & Research
@@ -254,7 +258,7 @@ When you detect trigger patterns above, you MUST invoke the corresponding skill 
 | Planning, strategy | `ask_codex` (planner role) | `planner` agent |
 | Plan critique | `ask_codex` (critic role) | `critic` agent |
 | Pre-planning analysis | `ask_codex` (analyst role) | `analyst` agent |
-| Code review | `ask_codex` (code-reviewer role) | `code-reviewer` / `code-reviewer-low` agents |
+| Code review | `ask_codex` (code-reviewer role) | `code-reviewer` agent |
 | Security review | `ask_codex` (security-reviewer role) | `security-reviewer` / `security-reviewer-low` agents |
 | TDD guidance | `ask_codex` (tdd-guide role) | `tdd-guide` / `tdd-guide-low` agents |
 | UI/UX design, frontend | `ask_gemini` (designer role) | `designer` / `designer-low` / `designer-high` agents |
@@ -263,11 +267,11 @@ When you detect trigger patterns above, you MUST invoke the corresponding skill 
 
 **Agents to keep using (no MCP replacement):**
 - `executor` / `executor-low` / `executor-high` — code execution needs Claude's tool access
-- `explore` / `explore-medium` / `explore-high` — codebase search needs Claude's file tools
-- `researcher` / `researcher-low` — uses Context7 MCP, not Codex/Gemini
+- `explore` / `explore-high` — codebase search needs Claude's file tools
+- `researcher` — uses Context7 MCP, not Codex/Gemini
 - `scientist` (all tiers) — uses Python REPL MCP
-- `build-fixer` (all tiers) — needs Claude's edit tools
-- `qa-tester` (all tiers) — needs Claude's bash/tmux access
+- `build-fixer` — needs Claude's edit tools
+- `qa-tester` — needs Claude's bash/tmux access
 - `git-master` — needs Claude's git tools
 - `deep-executor` — needs Claude's full tool access
 
@@ -379,7 +383,7 @@ Skills should call MCPs directly instead of spawning Claude agents:
 
 | Skill | MCP Tool | Direct Call |
 |-------|----------|-------------|
-| `ralplan` | Codex | Call `ask_codex` with planner/architect/critic roles directly |
+| `plan --consensus` | Codex | Call `ask_codex` with planner/architect/critic roles directly |
 | `frontend-ui-ux` | Gemini | Call `ask_gemini` with designer role directly |
 | `code-review` | Codex | Call `ask_codex` with code-reviewer role directly |
 | `security-review` | Codex | Call `ask_codex` with security-reviewer role directly |
@@ -403,12 +407,11 @@ All state stored at `{worktree}/.omc/state/{mode}-state.json`. Never in `~/.clau
 | `state_list_active` | List all active modes |
 | `state_get_status` | Detailed status for mode(s) |
 
-Supported modes: autopilot, ultrapilot, pipeline, ralph, ultrawork, ultraqa, ecomode, ralplan.
+Supported modes: autopilot, ultrapilot, team, pipeline, ralph, ultrawork, ultraqa, ecomode.
 
 ### Team Tools (Claude Code Native)
 
-Native team coordination using Claude Code's built-in TeamCreate/SendMessage/TaskCreate.
-Replaces the legacy SQLite-based swarm. Use `/oh-my-claudecode:team` to activate.
+Native team coordination using Claude Code's built-in TeamCreate/SendMessage/TaskCreate. Use `/oh-my-claudecode:team` to activate.
 
 | Tool | Description |
 |------|-------------|
