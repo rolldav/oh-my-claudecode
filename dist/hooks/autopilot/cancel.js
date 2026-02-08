@@ -11,8 +11,8 @@ import { clearUltraQAState, readUltraQAState } from '../ultraqa/index.js';
  * Cancel autopilot and clean up all related state
  * Progress is preserved for potential resume
  */
-export function cancelAutopilot(directory) {
-    const state = readAutopilotState(directory);
+export function cancelAutopilot(directory, sessionId) {
+    const state = readAutopilotState(directory, sessionId);
     if (!state) {
         return {
             success: false,
@@ -45,7 +45,7 @@ export function cancelAutopilot(directory) {
     }
     // Mark autopilot as inactive but preserve state for resume
     state.active = false;
-    writeAutopilotState(directory, state);
+    writeAutopilotState(directory, state, sessionId);
     const cleanupMsg = cleanedUp.length > 0
         ? ` Cleaned up: ${cleanedUp.join(', ')}.`
         : '';
@@ -58,8 +58,8 @@ export function cancelAutopilot(directory) {
 /**
  * Fully clear autopilot state (no preserve)
  */
-export function clearAutopilot(directory) {
-    const state = readAutopilotState(directory);
+export function clearAutopilot(directory, sessionId) {
+    const state = readAutopilotState(directory, sessionId);
     if (!state) {
         return {
             success: true,
@@ -79,7 +79,7 @@ export function clearAutopilot(directory) {
         clearUltraQAState(directory);
     }
     // Clear autopilot state completely
-    clearAutopilotState(directory);
+    clearAutopilotState(directory, sessionId);
     return {
         success: true,
         message: 'Autopilot state cleared completely'
@@ -88,8 +88,8 @@ export function clearAutopilot(directory) {
 /**
  * Check if autopilot can be resumed
  */
-export function canResumeAutopilot(directory) {
-    const state = readAutopilotState(directory);
+export function canResumeAutopilot(directory, sessionId) {
+    const state = readAutopilotState(directory, sessionId);
     if (!state) {
         return { canResume: false };
     }
@@ -104,8 +104,8 @@ export function canResumeAutopilot(directory) {
 /**
  * Resume a paused autopilot session
  */
-export function resumeAutopilot(directory) {
-    const { canResume, state } = canResumeAutopilot(directory);
+export function resumeAutopilot(directory, sessionId) {
+    const { canResume, state } = canResumeAutopilot(directory, sessionId);
     if (!canResume || !state) {
         return {
             success: false,
@@ -115,7 +115,7 @@ export function resumeAutopilot(directory) {
     // Re-activate
     state.active = true;
     state.iteration++;
-    if (!writeAutopilotState(directory, state)) {
+    if (!writeAutopilotState(directory, state, sessionId)) {
         return {
             success: false,
             message: 'Failed to update autopilot state'

@@ -40,7 +40,7 @@ export const stateReadTool = {
     schema: {
         mode: z.enum(STATE_TOOL_MODES).describe('The mode to read state for'),
         workingDirectory: z.string().optional().describe('Working directory (defaults to cwd)'),
-        session_id: z.string().optional().describe('Optional session ID for session-scoped state isolation. When provided, reads from session-scoped paths (.omc/state/sessions/{session_id}/). When omitted, reads from legacy shared paths.'),
+        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. STRONGLY RECOMMENDED — prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.'),
     },
     handler: async (args) => {
         const { mode, workingDirectory, session_id } = args;
@@ -105,11 +105,11 @@ export const stateReadTool = {
                 return {
                     content: [{
                             type: 'text',
-                            text: `No state found for mode: ${mode}\nExpected legacy path: ${statePath}\nNo active sessions found.`
+                            text: `No state found for mode: ${mode}\nExpected legacy path: ${statePath}\nNo active sessions found.\n\nNote: Reading from legacy/aggregate path (no session_id). This may include state from other sessions.`
                         }]
                 };
             }
-            let output = `## State for ${mode}\n\n`;
+            let output = `## State for ${mode}\n\nNote: Reading from legacy/aggregate path (no session_id). This may include state from other sessions.\n\n`;
             // Show legacy state if exists
             if (legacyExists) {
                 try {
@@ -174,7 +174,7 @@ export const stateWriteTool = {
         error: z.string().optional().describe('Error message if the mode failed'),
         state: z.record(z.string(), z.unknown()).optional().describe('Additional custom state fields (merged with explicit parameters)'),
         workingDirectory: z.string().optional().describe('Working directory (defaults to cwd)'),
-        session_id: z.string().optional().describe('Optional session ID for session-scoped state isolation. When provided, writes to session-scoped paths (.omc/state/sessions/{session_id}/). When omitted, writes to legacy shared paths.'),
+        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. STRONGLY RECOMMENDED — prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.'),
     },
     handler: async (args) => {
         const { mode, active, iteration, max_iterations, current_phase, task_description, plan_path, started_at, completed_at, error, state, workingDirectory, session_id } = args;
@@ -244,10 +244,11 @@ export const stateWriteTool = {
             };
             atomicWriteJsonSync(statePath, stateWithMeta);
             const sessionInfo = sessionId ? ` (session: ${sessionId})` : ' (legacy path)';
+            const warningMessage = sessionId ? '' : '\n\nWARNING: No session_id provided. State written to legacy shared path which may leak across parallel sessions. Pass session_id for session-scoped isolation.';
             return {
                 content: [{
                         type: 'text',
-                        text: `Successfully wrote state for ${mode}${sessionInfo}\nPath: ${statePath}\n\n\`\`\`json\n${JSON.stringify(stateWithMeta, null, 2)}\n\`\`\``
+                        text: `Successfully wrote state for ${mode}${sessionInfo}\nPath: ${statePath}\n\n\`\`\`json\n${JSON.stringify(stateWithMeta, null, 2)}\n\`\`\`${warningMessage}`
                     }]
             };
         }
@@ -270,7 +271,7 @@ export const stateClearTool = {
     schema: {
         mode: z.enum(STATE_TOOL_MODES).describe('The mode to clear state for'),
         workingDirectory: z.string().optional().describe('Working directory (defaults to cwd)'),
-        session_id: z.string().optional().describe('Optional session ID for session-scoped state isolation. When provided, clears session-specific state. When omitted, clears from all locations (legacy + all sessions).'),
+        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. STRONGLY RECOMMENDED — prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.'),
     },
     handler: async (args) => {
         const { mode, workingDirectory, session_id } = args;
@@ -404,7 +405,7 @@ export const stateListActiveTool = {
     description: 'List all currently active modes. Returns which modes have active state files.',
     schema: {
         workingDirectory: z.string().optional().describe('Working directory (defaults to cwd)'),
-        session_id: z.string().optional().describe('Optional session ID for session-scoped state isolation. When provided, shows modes active for that specific session. When omitted, shows all active modes across all sessions.'),
+        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. STRONGLY RECOMMENDED — prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.'),
     },
     handler: async (args) => {
         const { workingDirectory, session_id } = args;
@@ -532,7 +533,7 @@ export const stateGetStatusTool = {
     schema: {
         mode: z.enum(STATE_TOOL_MODES).optional().describe('Specific mode to check (omit for all modes)'),
         workingDirectory: z.string().optional().describe('Working directory (defaults to cwd)'),
-        session_id: z.string().optional().describe('Optional session ID for session-scoped state isolation. When provided, includes session info in the status output. When omitted, shows status across all sessions.'),
+        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. STRONGLY RECOMMENDED — prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.'),
     },
     handler: async (args) => {
         const { mode, workingDirectory, session_id } = args;

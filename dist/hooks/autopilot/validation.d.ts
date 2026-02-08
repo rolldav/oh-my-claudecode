@@ -18,23 +18,23 @@ export interface ValidationCoordinatorResult {
 /**
  * Record a validation verdict from an architect
  */
-export declare function recordValidationVerdict(directory: string, type: ValidationVerdictType, verdict: ValidationVerdict, issues?: string[]): boolean;
+export declare function recordValidationVerdict(directory: string, type: ValidationVerdictType, verdict: ValidationVerdict, issues?: string[], sessionId?: string): boolean;
 /**
  * Get validation status
  */
-export declare function getValidationStatus(directory: string): ValidationCoordinatorResult | null;
+export declare function getValidationStatus(directory: string, sessionId?: string): ValidationCoordinatorResult | null;
 /**
  * Start a new validation round
  */
-export declare function startValidationRound(directory: string): boolean;
+export declare function startValidationRound(directory: string, sessionId?: string): boolean;
 /**
  * Check if validation should retry
  */
-export declare function shouldRetryValidation(directory: string, maxRounds?: number): boolean;
+export declare function shouldRetryValidation(directory: string, maxRounds?: number, sessionId?: string): boolean;
 /**
  * Get issues that need fixing before retry
  */
-export declare function getIssuesToFix(directory: string): string[];
+export declare function getIssuesToFix(directory: string, sessionId?: string): string[];
 /**
  * Generate the validation spawn prompt
  */
@@ -42,11 +42,11 @@ export declare function getValidationSpawnPrompt(specPath: string): string;
 /**
  * Format validation results for display
  */
-export declare function formatValidationResults(state: AutopilotState): string;
+export declare function formatValidationResults(state: AutopilotState, sessionId?: string): string;
 /**
  * Generate a summary of the autopilot run
  */
-export declare function generateSummary(directory: string): AutopilotSummary | null;
+export declare function generateSummary(directory: string, sessionId?: string): AutopilotSummary | null;
 /**
  * Generate formatted summary output
  */

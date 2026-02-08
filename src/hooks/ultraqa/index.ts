@@ -83,20 +83,26 @@ function ensureStateDir(directory: string, sessionId?: string): void {
  * Read UltraQA state from disk
  */
 export function readUltraQAState(directory: string, sessionId?: string): UltraQAState | null {
-  // Try session-scoped path first
+  // When sessionId is provided, ONLY check session-scoped path — no legacy fallback
   if (sessionId) {
     const sessionFile = getStateFilePath(directory, sessionId);
-    if (existsSync(sessionFile)) {
-      try {
-        const content = readFileSync(sessionFile, 'utf-8');
-        return JSON.parse(content);
-      } catch {
-        // Fall through to legacy path
+    if (!existsSync(sessionFile)) {
+      return null;
+    }
+    try {
+      const content = readFileSync(sessionFile, 'utf-8');
+      const state: UltraQAState = JSON.parse(content);
+      // Validate session identity
+      if (state.session_id && state.session_id !== sessionId) {
+        return null;
       }
+      return state;
+    } catch {
+      return null; // NO legacy fallback
     }
   }
 
-  // Fallback to legacy path
+  // No sessionId: legacy path (backward compat)
   const stateFile = getStateFilePath(directory);
   if (!existsSync(stateFile)) {
     return null;

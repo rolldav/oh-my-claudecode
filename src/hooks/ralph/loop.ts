@@ -41,21 +41,22 @@ import { resolveSessionStatePath, ensureSessionStateDir } from "../../lib/worktr
 
 // Forward declaration to avoid circular import - check ultraqa state file directly
 export function isUltraQAActive(directory: string, sessionId?: string): boolean {
-  // Try session-scoped path first
+  // When sessionId is provided, ONLY check session-scoped path — no legacy fallback
   if (sessionId) {
     const sessionFile = resolveSessionStatePath('ultraqa', sessionId, directory);
-    if (existsSync(sessionFile)) {
-      try {
-        const content = readFileSync(sessionFile, "utf-8");
-        const state = JSON.parse(content);
-        return state && state.active === true;
-      } catch {
-        // Fall through to legacy path
-      }
+    if (!existsSync(sessionFile)) {
+      return false;
+    }
+    try {
+      const content = readFileSync(sessionFile, "utf-8");
+      const state = JSON.parse(content);
+      return state && state.active === true;
+    } catch {
+      return false; // NO legacy fallback
     }
   }
 
-  // Fallback to legacy path
+  // No sessionId: legacy path (backward compat)
   const omcDir = join(directory, ".omc");
   const stateFile = join(omcDir, "state", "ultraqa-state.json");
   if (!existsSync(stateFile)) {
@@ -141,21 +142,26 @@ function ensureStateDir(directory: string, sessionId?: string): void {
  * Read Ralph Loop state from disk
  */
 export function readRalphState(directory: string, sessionId?: string): RalphLoopState | null {
-  // Try session-scoped path first
+  // When sessionId is provided, ONLY check session-scoped path — no legacy fallback
   if (sessionId) {
     const sessionFile = getStateFilePath(directory, sessionId);
-    if (existsSync(sessionFile)) {
-      try {
-        const content = readFileSync(sessionFile, "utf-8");
-        return JSON.parse(content);
-      } catch (error) {
-        console.error("[ralph] Failed to read session state file:", error);
-        // Fall through to legacy path
+    if (!existsSync(sessionFile)) {
+      return null;
+    }
+    try {
+      const content = readFileSync(sessionFile, "utf-8");
+      const state: RalphLoopState = JSON.parse(content);
+      // Validate session identity
+      if (state.session_id && state.session_id !== sessionId) {
+        return null;
       }
+      return state;
+    } catch {
+      return null; // NO legacy fallback
     }
   }
 
-  // Fallback to legacy path
+  // No sessionId: legacy path (backward compat)
   const stateFile = getStateFilePath(directory);
   if (!existsSync(stateFile)) {
     return null;

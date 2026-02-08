@@ -190,9 +190,9 @@ describe('Installer Constants', () => {
         it('should contain essential sections', () => {
             const essentialSections = [
                 'Multi-Agent Orchestration',
-                'Delegation-First Philosophy',
-                'Skills',
-                'Cancellation',
+                'delegation_rules',
+                'skills',
+                'cancellation',
             ];
             for (const section of essentialSections) {
                 expect(CLAUDE_MD_CONTENT).toContain(section);
@@ -214,9 +214,9 @@ describe('Installer Constants', () => {
                 expect(CLAUDE_MD_CONTENT).toContain(agent);
             }
         });
-        it('should include adaptive model routing', () => {
-            // Verify the Adaptive Model Routing section exists with model names
-            expect(CLAUDE_MD_CONTENT).toContain('Adaptive Model Routing');
+        it('should include model routing', () => {
+            // Verify model routing section exists with model names
+            expect(CLAUDE_MD_CONTENT).toContain('model_routing');
             expect(CLAUDE_MD_CONTENT).toContain('haiku');
             expect(CLAUDE_MD_CONTENT).toContain('sonnet');
             expect(CLAUDE_MD_CONTENT).toContain('opus');
@@ -233,13 +233,13 @@ describe('Installer Constants', () => {
                 expect(CLAUDE_MD_CONTENT).toContain(keyword);
             }
             // Verify skills section exists with trigger patterns
-            expect(CLAUDE_MD_CONTENT).toContain('Skills');
-            expect(CLAUDE_MD_CONTENT).toContain('Trigger');
+            expect(CLAUDE_MD_CONTENT).toContain('skills');
+            expect(CLAUDE_MD_CONTENT).toContain('trigger');
         });
-        it('should contain markdown tables', () => {
-            // Check for table structure
-            expect(CLAUDE_MD_CONTENT).toMatch(/\|[^\n]+\|/); // Contains pipes
-            expect(CLAUDE_MD_CONTENT).toMatch(/\|[-\s]+\|/); // Contains separator row
+        it('should contain XML behavioral tags', () => {
+            // Check for XML tag structure used in best-practices rewrite
+            expect(CLAUDE_MD_CONTENT).toMatch(/<\w+>/); // Contains opening tags
+            expect(CLAUDE_MD_CONTENT).toMatch(/<\/\w+>/); // Contains closing tags
         });
     });
     describe('VERSION', () => {
@@ -250,7 +250,7 @@ describe('Installer Constants', () => {
         });
         it('should match package.json version', () => {
             // This is a runtime check - VERSION should match the package.json
-            expect(VERSION).toBe('3.10.3');
+            expect(VERSION).toBe('4.1.0');
         });
     });
     describe('File Paths', () => {

@@ -38,9 +38,10 @@ export function recordValidationVerdict(
   directory: string,
   type: ValidationVerdictType,
   verdict: ValidationVerdict,
-  issues?: string[]
+  issues?: string[],
+  sessionId?: string
 ): boolean {
-  const state = readAutopilotState(directory);
+  const state = readAutopilotState(directory, sessionId);
   if (!state || state.phase !== 'validation') {
     return false;
   }
@@ -70,14 +71,14 @@ export function recordValidationVerdict(
     );
   }
 
-  return writeAutopilotState(directory, state);
+  return writeAutopilotState(directory, state, sessionId);
 }
 
 /**
  * Get validation status
  */
-export function getValidationStatus(directory: string): ValidationCoordinatorResult | null {
-  const state = readAutopilotState(directory);
+export function getValidationStatus(directory: string, sessionId?: string): ValidationCoordinatorResult | null {
+  const state = readAutopilotState(directory, sessionId);
   if (!state) {
     return null;
   }
@@ -101,8 +102,8 @@ export function getValidationStatus(directory: string): ValidationCoordinatorRes
 /**
  * Start a new validation round
  */
-export function startValidationRound(directory: string): boolean {
-  const state = readAutopilotState(directory);
+export function startValidationRound(directory: string, sessionId?: string): boolean {
+  const state = readAutopilotState(directory, sessionId);
   if (!state || state.phase !== 'validation') {
     return false;
   }
@@ -112,14 +113,14 @@ export function startValidationRound(directory: string): boolean {
   state.validation.all_approved = false;
   state.validation.architects_spawned = 0;
 
-  return writeAutopilotState(directory, state);
+  return writeAutopilotState(directory, state, sessionId);
 }
 
 /**
  * Check if validation should retry
  */
-export function shouldRetryValidation(directory: string, maxRounds: number = 3): boolean {
-  const state = readAutopilotState(directory);
+export function shouldRetryValidation(directory: string, maxRounds: number = 3, sessionId?: string): boolean {
+  const state = readAutopilotState(directory, sessionId);
   if (!state) {
     return false;
   }
@@ -136,8 +137,8 @@ export function shouldRetryValidation(directory: string, maxRounds: number = 3):
 /**
  * Get issues that need fixing before retry
  */
-export function getIssuesToFix(directory: string): string[] {
-  const state = readAutopilotState(directory);
+export function getIssuesToFix(directory: string, sessionId?: string): string[] {
+  const state = readAutopilotState(directory, sessionId);
   if (!state) {
     return [];
   }
@@ -221,7 +222,7 @@ Wait for all three architects to complete, then aggregate verdicts.
 /**
  * Format validation results for display
  */
-export function formatValidationResults(state: AutopilotState): string {
+export function formatValidationResults(state: AutopilotState, sessionId?: string): string {
   const lines: string[] = [
     '## Validation Results',
     `Round: ${state.validation.validation_rounds}`,
@@ -257,8 +258,8 @@ export function formatValidationResults(state: AutopilotState): string {
 /**
  * Generate a summary of the autopilot run
  */
-export function generateSummary(directory: string): AutopilotSummary | null {
-  const state = readAutopilotState(directory);
+export function generateSummary(directory: string, sessionId?: string): AutopilotSummary | null {
+  const state = readAutopilotState(directory, sessionId);
   if (!state) {
     return null;
   }

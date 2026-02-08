@@ -72,20 +72,22 @@ export function ensureAutopilotDir(directory: string): string {
  * Read autopilot state from disk
  */
 export function readAutopilotState(directory: string, sessionId?: string): AutopilotState | null {
-  // Try session-scoped path first
   if (sessionId) {
+    // Session-scoped ONLY — no legacy fallback
     const sessionFile = getStateFilePath(directory, sessionId);
-    if (existsSync(sessionFile)) {
-      try {
-        const content = readFileSync(sessionFile, 'utf-8');
-        return JSON.parse(content);
-      } catch {
-        // Fall through to legacy path
-      }
+    if (!existsSync(sessionFile)) return null;
+    try {
+      const content = readFileSync(sessionFile, 'utf-8');
+      const state = JSON.parse(content);
+      // Validate session identity
+      if (state.session_id && state.session_id !== sessionId) return null;
+      return state;
+    } catch {
+      return null;
     }
   }
 
-  // Fallback to legacy path
+  // No sessionId: legacy path (backward compat)
   const stateFile = getStateFilePath(directory);
   if (!existsSync(stateFile)) {
     return null;
@@ -377,7 +379,7 @@ export function transitionRalphToUltraQA(
   directory: string,
   sessionId: string
 ): TransitionResult {
-  const autopilotState = readAutopilotState(directory);
+  const autopilotState = readAutopilotState(directory, sessionId);
 
   if (!autopilotState || autopilotState.phase !== 'execution') {
     return {
@@ -386,14 +388,14 @@ export function transitionRalphToUltraQA(
     };
   }
 
-  const ralphState = readRalphState(directory);
+  const ralphState = readRalphState(directory, sessionId);
 
   // Step 1: Preserve Ralph progress in autopilot state
   const executionUpdated = updateExecution(directory, {
     ralph_iterations: ralphState?.iteration ?? autopilotState.execution.ralph_iterations,
     ralph_completed_at: new Date().toISOString(),
     ultrawork_active: false
-  });
+  }, sessionId);
 
   if (!executionUpdated) {
     return {
@@ -404,9 +406,9 @@ export function transitionRalphToUltraQA(
 
   // Step 2: Cleanly terminate Ralph (and linked Ultrawork)
   if (ralphState?.linked_ultrawork) {
-    clearLinkedUltraworkState(directory);
+    clearLinkedUltraworkState(directory, sessionId);
   }
-  const ralphCleared = clearRalphState(directory);
+  const ralphCleared = clearRalphState(directory, sessionId);
 
   if (!ralphCleared) {
     return {
@@ -416,7 +418,7 @@ export function transitionRalphToUltraQA(
   }
 
   // Step 3: Transition to QA phase
-  const newState = transitionPhase(directory, 'qa');
+  const newState = transitionPhase(directory, 'qa', sessionId);
   if (!newState) {
     return {
       success: false,
@@ -429,8 +431,8 @@ export function transitionRalphToUltraQA(
 
   if (!qaResult.success) {
     // Rollback on failure - restore execution phase
-    transitionPhase(directory, 'execution');
-    updateExecution(directory, { ralph_completed_at: undefined });
+    transitionPhase(directory, 'execution', sessionId);
+    updateExecution(directory, { ralph_completed_at: undefined }, sessionId);
 
     return {
       success: false,
@@ -448,9 +450,10 @@ export function transitionRalphToUltraQA(
  * Transition from UltraQA (Phase 3: QA) to Validation (Phase 4)
  */
 export function transitionUltraQAToValidation(
-  directory: string
+  directory: string,
+  sessionId?: string
 ): TransitionResult {
-  const autopilotState = readAutopilotState(directory);
+  const autopilotState = readAutopilotState(directory, sessionId);
 
   if (!autopilotState || autopilotState.phase !== 'qa') {
     return {
@@ -459,13 +462,13 @@ export function transitionUltraQAToValidation(
     };
   }
 
-  const qaState = readUltraQAState(directory);
+  const qaState = readUltraQAState(directory, sessionId);
 
   // Preserve QA progress
   const qaUpdated = updateQA(directory, {
     ultraqa_cycles: qaState?.cycle ?? autopilotState.qa.ultraqa_cycles,
     qa_completed_at: new Date().toISOString()
-  });
+  }, sessionId);
 
   if (!qaUpdated) {
     return {
@@ -475,10 +478,10 @@ export function transitionUltraQAToValidation(
   }
 
   // Terminate UltraQA
-  clearUltraQAState(directory);
+  clearUltraQAState(directory, sessionId);
 
   // Transition to validation
-  const newState = transitionPhase(directory, 'validation');
+  const newState = transitionPhase(directory, 'validation', sessionId);
   if (!newState) {
     return {
       success: false,
@@ -495,8 +498,8 @@ export function transitionUltraQAToValidation(
 /**
  * Transition from Validation (Phase 4) to Complete
  */
-export function transitionToComplete(directory: string): TransitionResult {
-  const state = transitionPhase(directory, 'complete');
+export function transitionToComplete(directory: string, sessionId?: string): TransitionResult {
+  const state = transitionPhase(directory, 'complete', sessionId);
 
   if (!state) {
     return {
@@ -513,9 +516,10 @@ export function transitionToComplete(directory: string): TransitionResult {
  */
 export function transitionToFailed(
   directory: string,
-  error: string
+  error: string,
+  sessionId?: string
 ): TransitionResult {
-  const state = transitionPhase(directory, 'failed');
+  const state = transitionPhase(directory, 'failed', sessionId);
 
   if (!state) {
     return {

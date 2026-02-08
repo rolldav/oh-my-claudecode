@@ -85,15 +85,15 @@ export declare function transitionRalphToUltraQA(directory: string, sessionId: s
 /**
  * Transition from UltraQA (Phase 3: QA) to Validation (Phase 4)
  */
-export declare function transitionUltraQAToValidation(directory: string): TransitionResult;
+export declare function transitionUltraQAToValidation(directory: string, sessionId?: string): TransitionResult;
 /**
  * Transition from Validation (Phase 4) to Complete
  */
-export declare function transitionToComplete(directory: string): TransitionResult;
+export declare function transitionToComplete(directory: string, sessionId?: string): TransitionResult;
 /**
  * Transition to failed state
  */
-export declare function transitionToFailed(directory: string, error: string): TransitionResult;
+export declare function transitionToFailed(directory: string, error: string, sessionId?: string): TransitionResult;
 /**
  * Get a prompt for Claude to execute the transition
  */

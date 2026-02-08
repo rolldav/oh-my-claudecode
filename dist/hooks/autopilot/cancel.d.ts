@@ -14,15 +14,15 @@ export interface CancelResult {
  * Cancel autopilot and clean up all related state
  * Progress is preserved for potential resume
  */
-export declare function cancelAutopilot(directory: string): CancelResult;
+export declare function cancelAutopilot(directory: string, sessionId?: string): CancelResult;
 /**
  * Fully clear autopilot state (no preserve)
  */
-export declare function clearAutopilot(directory: string): CancelResult;
+export declare function clearAutopilot(directory: string, sessionId?: string): CancelResult;
 /**
  * Check if autopilot can be resumed
  */
-export declare function canResumeAutopilot(directory: string): {
+export declare function canResumeAutopilot(directory: string, sessionId?: string): {
     canResume: boolean;
     state?: AutopilotState;
     resumePhase?: string;
@@ -30,7 +30,7 @@ export declare function canResumeAutopilot(directory: string): {
 /**
  * Resume a paused autopilot session
  */
-export declare function resumeAutopilot(directory: string): {
+export declare function resumeAutopilot(directory: string, sessionId?: string): {
     success: boolean;
     message: string;
     state?: AutopilotState;

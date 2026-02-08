@@ -97,6 +97,21 @@ function normalizePath(p) {
 }
 
 /**
+ * Check if a state belongs to the requesting session.
+ * When sessionId is known: require exact match with state.session_id.
+ * When sessionId is empty/unknown: only match state without session_id (legacy compat).
+ */
+function isSessionMatch(state, sessionId) {
+  if (!state) return false;
+  if (sessionId) {
+    // Session is known: require exact match
+    return state.session_id === sessionId;
+  }
+  // No session_id from hook: only match legacy state (no session_id in state)
+  return !state.session_id;
+}
+
+/**
  * Check if a state belongs to the current project.
  */
 function isStateForCurrentProject(
@@ -129,7 +144,7 @@ function readStateFile(stateDir, filename) {
  * Read state file with session-scoped path support and fallback to legacy path.
  */
 function readStateFileWithSession(stateDir, filename, sessionId) {
-  // Try session-scoped path first
+  // Try session-scoped path first (and ONLY) when sessionId is available
   if (sessionId && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,255}$/.test(sessionId)) {
     const sessionsDir = join(stateDir, 'sessions', sessionId);
     const sessionPath = join(sessionsDir, filename);
@@ -137,8 +152,10 @@ function readStateFileWithSession(stateDir, filename, sessionId) {
     if (state) {
       return { state, path: sessionPath, isGlobal: false };
     }
+    // Session path not found — do NOT fall back to legacy
+    return { state: null, path: null, isGlobal: false };
   }
-  // Fall back to legacy path
+  // No sessionId: fall back to legacy path (backward compat)
   return readStateFile(stateDir, filename);
 }
 
@@ -333,7 +350,7 @@ async function main() {
 
     // Priority 1: Ralph Loop (explicit persistence mode)
     // Skip if state is stale (older than 2 hours) - prevents blocking new sessions
-    if (ralph.state?.active && !isStaleState(ralph.state)) {
+    if (ralph.state?.active && !isStaleState(ralph.state) && isSessionMatch(ralph.state, sessionId)) {
       const iteration = ralph.state.iteration || 1;
       const maxIter = ralph.state.max_iterations || 100;
 
@@ -353,7 +370,7 @@ async function main() {
     }
 
     // Priority 2: Autopilot (high-level orchestration)
-    if (autopilot.state?.active && !isStaleState(autopilot.state)) {
+    if (autopilot.state?.active && !isStaleState(autopilot.state) && isSessionMatch(autopilot.state, sessionId)) {
       const phase = autopilot.state.phase || "unknown";
       if (phase !== "complete") {
         const newCount = (autopilot.state.reinforcement_count || 0) + 1;
@@ -374,7 +391,7 @@ async function main() {
     }
 
     // Priority 3: Ultrapilot (parallel autopilot)
-    if (ultrapilot.state?.active && !isStaleState(ultrapilot.state)) {
+    if (ultrapilot.state?.active && !isStaleState(ultrapilot.state) && isSessionMatch(ultrapilot.state, sessionId)) {
       const workers = ultrapilot.state.workers || [];
       const incomplete = workers.filter(
         (w) => w.status !== "complete" && w.status !== "failed",
@@ -420,7 +437,7 @@ async function main() {
     }
 
     // Priority 5: Pipeline (sequential stages)
-    if (pipeline.state?.active && !isStaleState(pipeline.state)) {
+    if (pipeline.state?.active && !isStaleState(pipeline.state) && isSessionMatch(pipeline.state, sessionId)) {
       const currentStage = pipeline.state.current_stage || 0;
       const totalStages = pipeline.state.stages?.length || 0;
       if (currentStage < totalStages) {
@@ -442,7 +459,7 @@ async function main() {
     }
 
     // Priority 6: UltraQA (QA cycling)
-    if (ultraqa.state?.active && !isStaleState(ultraqa.state)) {
+    if (ultraqa.state?.active && !isStaleState(ultraqa.state) && isSessionMatch(ultraqa.state, sessionId)) {
       const cycle = ultraqa.state.cycle || 1;
       const maxCycles = ultraqa.state.max_cycles || 10;
       if (cycle < maxCycles && !ultraqa.state.all_passing) {
@@ -463,13 +480,11 @@ async function main() {
     // Priority 7: Ultrawork - ALWAYS continue while active (not just when tasks exist)
     // This prevents false stops from bash errors, transient failures, etc.
     // Session isolation: only block if state belongs to this session (issue #311)
-    // If state has session_id, it must match. If no session_id (legacy), allow.
     // Project isolation: only block if state belongs to this project
     if (
       ultrawork.state?.active &&
       !isStaleState(ultrawork.state) &&
-      (!ultrawork.state.session_id ||
-        ultrawork.state.session_id === sessionId) &&
+      isSessionMatch(ultrawork.state, sessionId) &&
       isStateForCurrentProject(ultrawork.state, directory, ultrawork.isGlobal)
     ) {
       const newCount = (ultrawork.state.reinforcement_count || 0) + 1;
@@ -507,7 +522,7 @@ async function main() {
     }
 
     // Priority 8: Ecomode - ALWAYS continue while active
-    if (ecomode.state?.active && !isStaleState(ecomode.state)) {
+    if (ecomode.state?.active && !isStaleState(ecomode.state) && isSessionMatch(ecomode.state, sessionId)) {
       const newCount = (ecomode.state.reinforcement_count || 0) + 1;
       const maxReinforcements = ecomode.state.max_reinforcements || 50;
 

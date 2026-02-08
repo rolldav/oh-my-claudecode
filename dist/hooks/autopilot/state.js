@@ -56,20 +56,24 @@ export function ensureAutopilotDir(directory) {
  * Read autopilot state from disk
  */
 export function readAutopilotState(directory, sessionId) {
-    // Try session-scoped path first
     if (sessionId) {
+        // Session-scoped ONLY — no legacy fallback
         const sessionFile = getStateFilePath(directory, sessionId);
-        if (existsSync(sessionFile)) {
-            try {
-                const content = readFileSync(sessionFile, 'utf-8');
-                return JSON.parse(content);
-            }
-            catch {
-                // Fall through to legacy path
-            }
+        if (!existsSync(sessionFile))
+            return null;
+        try {
+            const content = readFileSync(sessionFile, 'utf-8');
+            const state = JSON.parse(content);
+            // Validate session identity
+            if (state.session_id && state.session_id !== sessionId)
+                return null;
+            return state;
+        }
+        catch {
+            return null;
         }
     }
-    // Fallback to legacy path
+    // No sessionId: legacy path (backward compat)
     const stateFile = getStateFilePath(directory);
     if (!existsSync(stateFile)) {
         return null;
@@ -289,20 +293,20 @@ export function getPlanPath(directory) {
  * 4. Preserving context for potential rollback
  */
 export function transitionRalphToUltraQA(directory, sessionId) {
-    const autopilotState = readAutopilotState(directory);
+    const autopilotState = readAutopilotState(directory, sessionId);
     if (!autopilotState || autopilotState.phase !== 'execution') {
         return {
             success: false,
             error: 'Not in execution phase - cannot transition to QA'
         };
     }
-    const ralphState = readRalphState(directory);
+    const ralphState = readRalphState(directory, sessionId);
     // Step 1: Preserve Ralph progress in autopilot state
     const executionUpdated = updateExecution(directory, {
         ralph_iterations: ralphState?.iteration ?? autopilotState.execution.ralph_iterations,
         ralph_completed_at: new Date().toISOString(),
         ultrawork_active: false
-    });
+    }, sessionId);
     if (!executionUpdated) {
         return {
             success: false,
@@ -311,9 +315,9 @@ export function transitionRalphToUltraQA(directory, sessionId) {
     }
     // Step 2: Cleanly terminate Ralph (and linked Ultrawork)
     if (ralphState?.linked_ultrawork) {
-        clearLinkedUltraworkState(directory);
+        clearLinkedUltraworkState(directory, sessionId);
     }
-    const ralphCleared = clearRalphState(directory);
+    const ralphCleared = clearRalphState(directory, sessionId);
     if (!ralphCleared) {
         return {
             success: false,
@@ -321,7 +325,7 @@ export function transitionRalphToUltraQA(directory, sessionId) {
         };
     }
     // Step 3: Transition to QA phase
-    const newState = transitionPhase(directory, 'qa');
+    const newState = transitionPhase(directory, 'qa', sessionId);
     if (!newState) {
         return {
             success: false,
@@ -332,8 +336,8 @@ export function transitionRalphToUltraQA(directory, sessionId) {
     const qaResult = startUltraQA(directory, 'tests', sessionId, { maxCycles: 5 });
     if (!qaResult.success) {
         // Rollback on failure - restore execution phase
-        transitionPhase(directory, 'execution');
-        updateExecution(directory, { ralph_completed_at: undefined });
+        transitionPhase(directory, 'execution', sessionId);
+        updateExecution(directory, { ralph_completed_at: undefined }, sessionId);
         return {
             success: false,
             error: qaResult.error || 'Failed to start UltraQA'
@@ -347,20 +351,20 @@ export function transitionRalphToUltraQA(directory, sessionId) {
 /**
  * Transition from UltraQA (Phase 3: QA) to Validation (Phase 4)
  */
-export function transitionUltraQAToValidation(directory) {
-    const autopilotState = readAutopilotState(directory);
+export function transitionUltraQAToValidation(directory, sessionId) {
+    const autopilotState = readAutopilotState(directory, sessionId);
     if (!autopilotState || autopilotState.phase !== 'qa') {
         return {
             success: false,
             error: 'Not in QA phase - cannot transition to validation'
         };
     }
-    const qaState = readUltraQAState(directory);
+    const qaState = readUltraQAState(directory, sessionId);
     // Preserve QA progress
     const qaUpdated = updateQA(directory, {
         ultraqa_cycles: qaState?.cycle ?? autopilotState.qa.ultraqa_cycles,
         qa_completed_at: new Date().toISOString()
-    });
+    }, sessionId);
     if (!qaUpdated) {
         return {
             success: false,
@@ -368,9 +372,9 @@ export function transitionUltraQAToValidation(directory) {
         };
     }
     // Terminate UltraQA
-    clearUltraQAState(directory);
+    clearUltraQAState(directory, sessionId);
     // Transition to validation
-    const newState = transitionPhase(directory, 'validation');
+    const newState = transitionPhase(directory, 'validation', sessionId);
     if (!newState) {
         return {
             success: false,
@@ -385,8 +389,8 @@ export function transitionUltraQAToValidation(directory) {
 /**
  * Transition from Validation (Phase 4) to Complete
  */
-export function transitionToComplete(directory) {
-    const state = transitionPhase(directory, 'complete');
+export function transitionToComplete(directory, sessionId) {
+    const state = transitionPhase(directory, 'complete', sessionId);
     if (!state) {
         return {
             success: false,
@@ -398,8 +402,8 @@ export function transitionToComplete(directory) {
 /**
  * Transition to failed state
  */
-export function transitionToFailed(directory, error) {
-    const state = transitionPhase(directory, 'failed');
+export function transitionToFailed(directory, error, sessionId) {
+    const state = transitionPhase(directory, 'failed', sessionId);
     if (!state) {
         return {
             success: false,
