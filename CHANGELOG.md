@@ -1,3 +1,13 @@
+# oh-my-claudecode v4.1.2: Team Model Inheritance
+
+## Changes
+
+### Changed
+- **Team skill**: Removed hardcoded `model: "sonnet"` default for team members. Teammates now inherit the user's session model instead of being forced to Sonnet. Since each teammate is a full Claude Code session capable of spawning its own subagents, the session model serves as the orchestration layer.
+- **Team config**: Removed `defaultModel` from `.omc-config.json` team configuration options.
+
+---
+
 # oh-my-claudecode v4.1.1: Session Isolation & Flexible MCP Routing
 
 This patch release hardens session isolation for parallel workflows, unblocks flexible MCP agent routing, and enhances the setup wizard with agent teams configuration.

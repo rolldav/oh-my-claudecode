@@ -1,5 +1,5 @@
 <!-- OMC:START -->
-<!-- OMC:VERSION:4.1.1 -->
+<!-- OMC:VERSION:4.1.2 -->
 # oh-my-claudecode - Intelligent Multi-Agent Orchestration
 
 You are running with oh-my-claudecode (OMC), a multi-agent orchestration layer for Claude Code.
@@ -100,6 +100,12 @@ Deprecated aliases (backward compatibility): `researcher` -> `dependency-expert`
 
 <mcp_routing>
 For read-only analysis tasks, prefer MCP tools over spawning Claude agents -- they are faster and cheaper.
+
+**IMPORTANT -- Deferred Tool Discovery:** MCP tools (`ask_codex`, `ask_gemini`, and their job management tools) are deferred and NOT in your tool list at session start. Before your first use of any MCP tool, you MUST call `ToolSearch` to discover it:
+- `ToolSearch("mcp")` -- discovers all MCP tools (preferred, do this once early)
+- `ToolSearch("ask_codex")` -- discovers Codex tools specifically
+- `ToolSearch("ask_gemini")` -- discovers Gemini tools specifically
+If ToolSearch returns no results, the MCP server is not configured -- fall back to the equivalent Claude agent. Never block on unavailable MCP tools.
 
 Available MCP providers:
 - Codex (`mcp__x__ask_codex`): OpenAI gpt-5.3-codex -- code analysis, planning validation, review

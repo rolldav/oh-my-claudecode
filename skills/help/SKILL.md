@@ -189,4 +189,4 @@ Tip: Run /omc-setup to configure OMC properly.
 
 ---
 
-*Version: 4.1.1*
+*Version: 4.1.2*

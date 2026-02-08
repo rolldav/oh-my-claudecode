@@ -183,7 +183,6 @@ Spawn N teammates using `Task` with `team_name` and `name` parameters. Each team
 ```json
 {
   "subagent_type": "oh-my-claudecode:executor",
-  "model": "sonnet",
   "team_name": "fix-ts-errors",
   "name": "worker-1",
   "prompt": "<worker-preamble + assigned tasks>"
@@ -434,9 +433,12 @@ The lead runs #1 (Codex analysis), then #2 and #3 in parallel (Codex refactors b
 
 For large ambiguous tasks, run analysis before team creation:
 
-1. Call `ask_codex` (planner role) with task description + codebase context
-2. Use the analysis to produce better task decomposition
-3. Create team and tasks with enriched context
+1. Call `ToolSearch("mcp")` to discover deferred MCP tools (required before first use)
+2. Call `ask_codex` (planner role) with task description + codebase context
+3. Use the analysis to produce better task decomposition
+4. Create team and tasks with enriched context
+
+If ToolSearch finds no MCP tools, skip MCP pre-flight and use Claude agents instead.
 
 This is especially useful when the task scope is unclear and benefits from external reasoning before committing to a specific decomposition.
 
@@ -583,7 +585,6 @@ Optional settings via `.omc-config.json`:
   "team": {
     "maxAgents": 5,
     "defaultAgentType": "executor",
-    "defaultModel": "sonnet",
     "monitorIntervalMs": 30000,
     "shutdownTimeoutMs": 15000
   }
@@ -592,9 +593,10 @@ Optional settings via `.omc-config.json`:
 
 - **maxAgents** - Maximum teammates (hard cap: 5)
 - **defaultAgentType** - Agent type when not specified (default: `executor`)
-- **defaultModel** - Model for teammates (default: `sonnet`)
 - **monitorIntervalMs** - How often to poll `TaskList` (default: 30s)
 - **shutdownTimeoutMs** - How long to wait for shutdown responses (default: 15s)
+
+> **Note:** Team members do not have a hardcoded model default. Each teammate is a separate Claude Code session that inherits the user's configured model. Since teammates can spawn their own subagents, the session model acts as the orchestration layer while subagents can use any model tier.
 
 ## State Cleanup
 
