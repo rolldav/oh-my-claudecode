@@ -21057,15 +21057,6 @@ function getWorktreeProjectMemoryPath(worktreeRoot) {
   return (0, import_path7.join)(root, OmcPaths.PROJECT_MEMORY);
 }
 var SESSION_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,255}$/;
-var processSessionId = null;
-function getProcessSessionId() {
-  if (!processSessionId) {
-    const pid = process.pid;
-    const startTime = Date.now();
-    processSessionId = `pid-${pid}-${startTime}`;
-  }
-  return processSessionId;
-}
 function validateSessionId(sessionId) {
   if (!sessionId) {
     throw new Error("Session ID cannot be empty");
@@ -21368,13 +21359,13 @@ var stateReadTool = {
   schema: {
     mode: external_exports.enum(STATE_TOOL_MODES).describe("The mode to read state for"),
     workingDirectory: external_exports.string().optional().describe("Working directory (defaults to cwd)"),
-    session_id: external_exports.string().optional().describe("Session ID for session-scoped state isolation. STRONGLY RECOMMENDED \u2014 prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.")
+    session_id: external_exports.string().optional().describe("Session ID for session-scoped state isolation. When provided, the tool operates only within that session. When omitted, the tool aggregates legacy state plus all session-scoped state (may include other sessions).")
   },
   handler: async (args) => {
     const { mode, workingDirectory, session_id } = args;
     try {
       const root = validateWorkingDirectory(workingDirectory);
-      const sessionId = session_id || getProcessSessionId();
+      const sessionId = session_id;
       if (mode === "swarm") {
         const statePath2 = getStatePath(mode, root);
         if (!(0, import_fs8.existsSync)(statePath2)) {
@@ -21529,7 +21520,7 @@ var stateWriteTool = {
     error: external_exports.string().optional().describe("Error message if the mode failed"),
     state: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("Additional custom state fields (merged with explicit parameters)"),
     workingDirectory: external_exports.string().optional().describe("Working directory (defaults to cwd)"),
-    session_id: external_exports.string().optional().describe("Session ID for session-scoped state isolation. STRONGLY RECOMMENDED \u2014 prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.")
+    session_id: external_exports.string().optional().describe("Session ID for session-scoped state isolation. When provided, the tool operates only within that session. When omitted, the tool aggregates legacy state plus all session-scoped state (may include other sessions).")
   },
   handler: async (args) => {
     const {
@@ -21549,7 +21540,7 @@ var stateWriteTool = {
     } = args;
     try {
       const root = validateWorkingDirectory(workingDirectory);
-      const sessionId = session_id || getProcessSessionId();
+      const sessionId = session_id;
       if (mode === "swarm") {
         return {
           content: [{
@@ -21623,13 +21614,13 @@ var stateClearTool = {
   schema: {
     mode: external_exports.enum(STATE_TOOL_MODES).describe("The mode to clear state for"),
     workingDirectory: external_exports.string().optional().describe("Working directory (defaults to cwd)"),
-    session_id: external_exports.string().optional().describe("Session ID for session-scoped state isolation. STRONGLY RECOMMENDED \u2014 prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.")
+    session_id: external_exports.string().optional().describe("Session ID for session-scoped state isolation. When provided, the tool operates only within that session. When omitted, the tool aggregates legacy state plus all session-scoped state (may include other sessions).")
   },
   handler: async (args) => {
     const { mode, workingDirectory, session_id } = args;
     try {
       const root = validateWorkingDirectory(workingDirectory);
-      const sessionId = session_id || getProcessSessionId();
+      const sessionId = session_id;
       if (sessionId) {
         validateSessionId(sessionId);
         if (MODE_CONFIGS[mode]) {
@@ -21672,10 +21663,13 @@ Removed: ${statePath}`
       let clearedCount = 0;
       const errors = [];
       if (MODE_CONFIGS[mode]) {
-        if (clearModeState(mode, root)) {
-          clearedCount++;
-        } else {
-          errors.push("legacy path");
+        const legacyStatePath = getStateFilePath(root, mode);
+        if ((0, import_fs8.existsSync)(legacyStatePath)) {
+          if (clearModeState(mode, root)) {
+            clearedCount++;
+          } else {
+            errors.push("legacy path");
+          }
         }
       } else {
         const statePath = getStatePath(mode, root);
@@ -21691,10 +21685,13 @@ Removed: ${statePath}`
       const sessionIds = listSessionIds(root);
       for (const sid of sessionIds) {
         if (MODE_CONFIGS[mode]) {
-          if (clearModeState(mode, root, sid)) {
-            clearedCount++;
-          } else {
-            errors.push(`session: ${sid}`);
+          const sessionStatePath = getStateFilePath(root, mode, sid);
+          if ((0, import_fs8.existsSync)(sessionStatePath)) {
+            if (clearModeState(mode, root, sid)) {
+              clearedCount++;
+            } else {
+              errors.push(`session: ${sid}`);
+            }
           }
         } else {
           const statePath = resolveSessionStatePath(mode, sid, root);
@@ -21722,6 +21719,7 @@ Removed: ${statePath}`
         message += `
 - Errors: ${errors.join(", ")}`;
       }
+      message += "\nWARNING: No session_id provided. Cleared legacy plus all session-scoped state; this is a broad operation that may affect other sessions.";
       return {
         content: [{
           type: "text",
@@ -21743,13 +21741,13 @@ var stateListActiveTool = {
   description: "List all currently active modes. Returns which modes have active state files.",
   schema: {
     workingDirectory: external_exports.string().optional().describe("Working directory (defaults to cwd)"),
-    session_id: external_exports.string().optional().describe("Session ID for session-scoped state isolation. STRONGLY RECOMMENDED \u2014 prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.")
+    session_id: external_exports.string().optional().describe("Session ID for session-scoped state isolation. When provided, the tool operates only within that session. When omitted, the tool aggregates legacy state plus all session-scoped state (may include other sessions).")
   },
   handler: async (args) => {
     const { workingDirectory, session_id } = args;
     try {
       const root = validateWorkingDirectory(workingDirectory);
-      const sessionId = session_id || getProcessSessionId();
+      const sessionId = session_id;
       if (sessionId) {
         validateSessionId(sessionId);
         const activeModes = [...getActiveModes(root, sessionId)];
@@ -21859,13 +21857,13 @@ var stateGetStatusTool = {
   schema: {
     mode: external_exports.enum(STATE_TOOL_MODES).optional().describe("Specific mode to check (omit for all modes)"),
     workingDirectory: external_exports.string().optional().describe("Working directory (defaults to cwd)"),
-    session_id: external_exports.string().optional().describe("Session ID for session-scoped state isolation. STRONGLY RECOMMENDED \u2014 prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.")
+    session_id: external_exports.string().optional().describe("Session ID for session-scoped state isolation. When provided, the tool operates only within that session. When omitted, the tool aggregates legacy state plus all session-scoped state (may include other sessions).")
   },
   handler: async (args) => {
     const { mode, workingDirectory, session_id } = args;
     try {
       const root = validateWorkingDirectory(workingDirectory);
-      const sessionId = session_id || getProcessSessionId();
+      const sessionId = session_id;
       if (mode) {
         const lines2 = [`## Status: ${mode}
 `];

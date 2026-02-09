@@ -6,7 +6,7 @@
  */
 import { z } from 'zod';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
-import { resolveStatePath, ensureOmcDir, validateWorkingDirectory, resolveSessionStatePath, ensureSessionStateDir, listSessionIds, validateSessionId, getProcessSessionId, } from '../lib/worktree-paths.js';
+import { resolveStatePath, ensureOmcDir, validateWorkingDirectory, resolveSessionStatePath, ensureSessionStateDir, listSessionIds, validateSessionId, } from '../lib/worktree-paths.js';
 import { atomicWriteJsonSync } from '../lib/atomic-write.js';
 import { isModeActive, getActiveModes, getAllModeStatuses, clearModeState, getStateFilePath, MODE_CONFIGS, getActiveSessionsForMode } from '../hooks/mode-registry/index.js';
 // ExecutionMode from mode-registry (8 modes - NO ralplan)
@@ -40,14 +40,13 @@ export const stateReadTool = {
     schema: {
         mode: z.enum(STATE_TOOL_MODES).describe('The mode to read state for'),
         workingDirectory: z.string().optional().describe('Working directory (defaults to cwd)'),
-        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. STRONGLY RECOMMENDED — prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.'),
+        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. When provided, the tool operates only within that session. When omitted, the tool aggregates legacy state plus all session-scoped state (may include other sessions).'),
     },
     handler: async (args) => {
         const { mode, workingDirectory, session_id } = args;
         try {
             const root = validateWorkingDirectory(workingDirectory);
-            // Auto-inject process session ID when none provided (Issue #456)
-            const sessionId = session_id || getProcessSessionId();
+            const sessionId = session_id;
             // Special handling for swarm (SQLite database - no session support)
             if (mode === 'swarm') {
                 const statePath = getStatePath(mode, root);
@@ -175,14 +174,13 @@ export const stateWriteTool = {
         error: z.string().optional().describe('Error message if the mode failed'),
         state: z.record(z.string(), z.unknown()).optional().describe('Additional custom state fields (merged with explicit parameters)'),
         workingDirectory: z.string().optional().describe('Working directory (defaults to cwd)'),
-        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. STRONGLY RECOMMENDED — prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.'),
+        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. When provided, the tool operates only within that session. When omitted, the tool aggregates legacy state plus all session-scoped state (may include other sessions).'),
     },
     handler: async (args) => {
         const { mode, active, iteration, max_iterations, current_phase, task_description, plan_path, started_at, completed_at, error, state, workingDirectory, session_id } = args;
         try {
             const root = validateWorkingDirectory(workingDirectory);
-            // Auto-inject process session ID when none provided (Issue #456)
-            const sessionId = session_id || getProcessSessionId();
+            const sessionId = session_id;
             // Swarm uses SQLite - cannot be written via this tool
             if (mode === 'swarm') {
                 return {
@@ -273,14 +271,13 @@ export const stateClearTool = {
     schema: {
         mode: z.enum(STATE_TOOL_MODES).describe('The mode to clear state for'),
         workingDirectory: z.string().optional().describe('Working directory (defaults to cwd)'),
-        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. STRONGLY RECOMMENDED — prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.'),
+        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. When provided, the tool operates only within that session. When omitted, the tool aggregates legacy state plus all session-scoped state (may include other sessions).'),
     },
     handler: async (args) => {
         const { mode, workingDirectory, session_id } = args;
         try {
             const root = validateWorkingDirectory(workingDirectory);
-            // Auto-inject process session ID when none provided (Issue #456)
-            const sessionId = session_id || getProcessSessionId();
+            const sessionId = session_id;
             // If session_id provided, clear only session-specific state
             if (sessionId) {
                 validateSessionId(sessionId);
@@ -328,11 +325,15 @@ export const stateClearTool = {
             const errors = [];
             // Clear legacy path
             if (MODE_CONFIGS[mode]) {
-                if (clearModeState(mode, root)) {
-                    clearedCount++;
-                }
-                else {
-                    errors.push('legacy path');
+                // Only clear if state file exists - avoid false counts for missing files
+                const legacyStatePath = getStateFilePath(root, mode);
+                if (existsSync(legacyStatePath)) {
+                    if (clearModeState(mode, root)) {
+                        clearedCount++;
+                    }
+                    else {
+                        errors.push('legacy path');
+                    }
                 }
             }
             else {
@@ -351,11 +352,15 @@ export const stateClearTool = {
             const sessionIds = listSessionIds(root);
             for (const sid of sessionIds) {
                 if (MODE_CONFIGS[mode]) {
-                    if (clearModeState(mode, root, sid)) {
-                        clearedCount++;
-                    }
-                    else {
-                        errors.push(`session: ${sid}`);
+                    // Only clear if state file exists - avoid false counts for missing files
+                    const sessionStatePath = getStateFilePath(root, mode, sid);
+                    if (existsSync(sessionStatePath)) {
+                        if (clearModeState(mode, root, sid)) {
+                            clearedCount++;
+                        }
+                        else {
+                            errors.push(`session: ${sid}`);
+                        }
                     }
                 }
                 else {
@@ -383,6 +388,7 @@ export const stateClearTool = {
             if (errors.length > 0) {
                 message += `\n- Errors: ${errors.join(', ')}`;
             }
+            message += '\nWARNING: No session_id provided. Cleared legacy plus all session-scoped state; this is a broad operation that may affect other sessions.';
             return {
                 content: [{
                         type: 'text',
@@ -408,14 +414,13 @@ export const stateListActiveTool = {
     description: 'List all currently active modes. Returns which modes have active state files.',
     schema: {
         workingDirectory: z.string().optional().describe('Working directory (defaults to cwd)'),
-        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. STRONGLY RECOMMENDED — prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.'),
+        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. When provided, the tool operates only within that session. When omitted, the tool aggregates legacy state plus all session-scoped state (may include other sessions).'),
     },
     handler: async (args) => {
         const { workingDirectory, session_id } = args;
         try {
             const root = validateWorkingDirectory(workingDirectory);
-            // Auto-inject process session ID when none provided (Issue #456)
-            const sessionId = session_id || getProcessSessionId();
+            const sessionId = session_id;
             // If session_id provided, show modes active for that specific session
             if (sessionId) {
                 validateSessionId(sessionId);
@@ -537,14 +542,13 @@ export const stateGetStatusTool = {
     schema: {
         mode: z.enum(STATE_TOOL_MODES).optional().describe('Specific mode to check (omit for all modes)'),
         workingDirectory: z.string().optional().describe('Working directory (defaults to cwd)'),
-        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. STRONGLY RECOMMENDED — prevents state leakage across parallel Claude Code sessions. When omitted, falls back to legacy shared path.'),
+        session_id: z.string().optional().describe('Session ID for session-scoped state isolation. When provided, the tool operates only within that session. When omitted, the tool aggregates legacy state plus all session-scoped state (may include other sessions).'),
     },
     handler: async (args) => {
         const { mode, workingDirectory, session_id } = args;
         try {
             const root = validateWorkingDirectory(workingDirectory);
-            // Auto-inject process session ID when none provided (Issue #456)
-            const sessionId = session_id || getProcessSessionId();
+            const sessionId = session_id;
             if (mode) {
                 // Single mode status
                 const lines = [`## Status: ${mode}\n`];
