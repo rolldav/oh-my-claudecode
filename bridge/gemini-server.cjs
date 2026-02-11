@@ -14758,17 +14758,17 @@ function resolveSystemPrompt(systemPrompt, agentRole, provider) {
   }
   return void 0;
 }
-function wrapUntrustedFileContent(filepathOrContent, contentOrMetadata) {
-  if (typeof contentOrMetadata === "string") {
-    return `
---- UNTRUSTED FILE CONTENT (${filepathOrContent}) ---
-${contentOrMetadata}
+function wrapUntrustedFileContent(filepath, content) {
+  return `
+--- UNTRUSTED FILE CONTENT (${filepath}) ---
+${content}
 --- END UNTRUSTED FILE CONTENT ---
 `;
-  }
+}
+function wrapUntrustedCliResponse(content, metadata) {
   return `
---- UNTRUSTED CLI RESPONSE (${contentOrMetadata.tool}:${contentOrMetadata.source}) ---
-${filepathOrContent}
+--- UNTRUSTED CLI RESPONSE (${metadata.tool}:${metadata.source}) ---
+${content}
 --- END UNTRUSTED CLI RESPONSE ---
 `;
 }
@@ -16949,11 +16949,11 @@ Suggested: use a working_directory within the project worktree, or set OMC_ALLOW
     };
   }
   const inlinePrompt = typeof args.prompt === "string" ? args.prompt : void 0;
-  const hasPromptFileField = "prompt_file" in args;
+  const hasPromptFileField = Object.hasOwn(args, "prompt_file");
   const promptFileInput = typeof args.prompt_file === "string" ? args.prompt_file : void 0;
   const hasInlineIntent = inlinePrompt !== void 0 && !hasPromptFileField;
-  const isInlineMode = hasInlineIntent && !!inlinePrompt.trim();
-  if (hasInlineIntent && !inlinePrompt.trim()) {
+  const isInlineMode = hasInlineIntent && inlinePrompt.trim().length > 0;
+  if (hasInlineIntent && !inlinePrompt?.trim()) {
     return {
       content: [{ type: "text", text: "Inline prompt is empty. Provide a non-empty prompt string." }],
       isError: true
@@ -16971,47 +16971,45 @@ Suggested: use a working_directory within the project worktree, or set OMC_ALLOW
     try {
       const promptsDir = getPromptsDir(baseDir);
       (0, import_fs9.mkdirSync)(promptsDir, { recursive: true });
-      const slug = slugify(args.prompt);
-      const filename = `gemini-inline-${slug}-${inlineRequestId}.md`;
-      const inlinePromptPath = (0, import_path9.join)(promptsDir, filename);
-      (0, import_fs9.writeFileSync)(inlinePromptPath, args.prompt, "utf-8");
+      const slug = slugify(inlinePrompt);
+      const inlinePromptPath = (0, import_path9.join)(promptsDir, `gemini-inline-${slug}-${inlineRequestId}.md`);
+      (0, import_fs9.writeFileSync)(inlinePromptPath, inlinePrompt, { encoding: "utf-8", mode: 384 });
       args = { ...args, prompt_file: inlinePromptPath };
+      if (!args.output_file || !args.output_file.trim()) {
+        args = { ...args, output_file: (0, import_path9.join)(promptsDir, `gemini-inline-response-${slug}-${inlineRequestId}.md`) };
+      }
     } catch {
       return {
         content: [{ type: "text", text: "Failed to persist inline prompt. Check working directory permissions and disk space." }],
         isError: true
       };
     }
-    if (!args.output_file || !args.output_file.trim()) {
-      const promptsDir = getPromptsDir(baseDir);
-      (0, import_fs9.mkdirSync)(promptsDir, { recursive: true });
-      const outSlug = slugify(args.prompt);
-      const outFilename = `gemini-inline-response-${outSlug}-${inlineRequestId}.md`;
-      args = { ...args, output_file: (0, import_path9.join)(promptsDir, outFilename) };
-    }
   }
-  if (!args.prompt_file || !args.prompt_file.trim()) {
+  const effectivePromptFile = isInlineMode ? args.prompt_file : promptFileInput;
+  if (!effectivePromptFile || !effectivePromptFile.trim()) {
     return {
       content: [{ type: "text", text: "Either 'prompt' (inline) or 'prompt_file' (file path) is required." }],
       isError: true
     };
   }
-  if (!args.output_file || !args.output_file.trim()) {
+  const effectiveOutputFile = typeof args.output_file === "string" ? args.output_file : void 0;
+  if (!effectiveOutputFile || !effectiveOutputFile.trim()) {
     return {
-      content: [{ type: "text", text: "output_file is required. Specify a path where the response should be written, or use the inline `prompt` parameter for auto-generated paths." }],
+      content: [{ type: "text", text: "output_file is required. Specify a path where the response should be written." }],
       isError: true
     };
   }
   let resolvedPrompt;
-  const resolvedPath = (0, import_path9.resolve)(baseDir, args.prompt_file);
+  const promptFile = args.prompt_file;
+  const resolvedPath = (0, import_path9.resolve)(baseDir, promptFile);
   const cwdReal = (0, import_fs9.realpathSync)(baseDir);
   const relPath = (0, import_path9.relative)(cwdReal, resolvedPath);
   if (!isExternalPromptAllowed() && (relPath === ".." || relPath.startsWith(".." + import_path9.sep) || (0, import_path9.isAbsolute)(relPath))) {
     return {
       content: [{
         type: "text",
-        text: `E_PATH_OUTSIDE_WORKDIR_PROMPT: prompt_file '${args.prompt_file}' resolves outside working_directory '${baseDirReal}'.
-Requested: ${args.prompt_file}
+        text: `E_PATH_OUTSIDE_WORKDIR_PROMPT: prompt_file '${promptFile}' resolves outside working_directory '${baseDirReal}'.
+Requested: ${promptFile}
 Working directory: ${baseDirReal}
 Resolved working directory: ${baseDirReal}
 Path policy: ${pathPolicy}
@@ -17025,7 +17023,7 @@ Suggested: place the prompt file within the working directory or set working_dir
     resolvedReal = (0, import_fs9.realpathSync)(resolvedPath);
   } catch (err) {
     return {
-      content: [{ type: "text", text: `Failed to resolve prompt_file '${args.prompt_file}': ${err.message}` }],
+      content: [{ type: "text", text: `Failed to resolve prompt_file '${promptFile}': ${err.message}` }],
       isError: true
     };
   }
@@ -17034,8 +17032,8 @@ Suggested: place the prompt file within the working directory or set working_dir
     return {
       content: [{
         type: "text",
-        text: `E_PATH_OUTSIDE_WORKDIR_PROMPT: prompt_file '${args.prompt_file}' resolves to a path outside working_directory '${baseDirReal}'.
-Requested: ${args.prompt_file}
+        text: `E_PATH_OUTSIDE_WORKDIR_PROMPT: prompt_file '${promptFile}' resolves to a path outside working_directory '${baseDirReal}'.
+Requested: ${promptFile}
 Resolved path: ${resolvedReal}
 Working directory: ${baseDirReal}
 Resolved working directory: ${baseDirReal}
@@ -17049,13 +17047,13 @@ Suggested: place the prompt file within the working directory or set working_dir
     resolvedPrompt = (0, import_fs9.readFileSync)(resolvedReal, "utf-8");
   } catch (err) {
     return {
-      content: [{ type: "text", text: `Failed to read prompt_file '${args.prompt_file}': ${err.message}` }],
+      content: [{ type: "text", text: `Failed to read prompt_file '${promptFile}': ${err.message}` }],
       isError: true
     };
   }
   if (!resolvedPrompt.trim()) {
     return {
-      content: [{ type: "text", text: `prompt_file '${args.prompt_file}' is empty.` }],
+      content: [{ type: "text", text: `prompt_file '${promptFile}' is empty.` }],
       isError: true
     };
   }
@@ -17193,7 +17191,7 @@ path_policy: ${pathPolicy}`
         return {
           content: [
             { type: "text", text: responseLines.join("\n") },
-            { type: "text", text: wrapUntrustedFileContent(response, { source: "inline-cli-response", tool: "ask_gemini" }) }
+            { type: "text", text: wrapUntrustedCliResponse(response, { source: "inline-cli-response", tool: "ask_gemini" }) }
           ]
         };
       }
@@ -17803,7 +17801,7 @@ var askGeminiTool = {
         description: `Required. Agent perspective for Gemini. Recommended: ${GEMINI_RECOMMENDED_ROLES.join(", ")}. Any valid OMC agent role is accepted.`
       },
       prompt: { type: "string", description: "Inline prompt text. Alternative to prompt_file -- the tool auto-persists to a file for audit trail. Use for simpler invocations where file management is unnecessary. If both prompt and prompt_file are provided, prompt_file takes precedence." },
-      prompt_file: { type: "string", description: "Path to file containing the prompt. Required unless 'prompt' is provided inline. Takes precedence over 'prompt' if both are provided." },
+      prompt_file: { type: "string", description: "Path to file containing the prompt. Required unless 'prompt' is provided inline. Presence of `prompt_file` key selects file mode regardless of value; `prompt_file` must be a non-empty string when used." },
       output_file: { type: "string", description: "Required for file-based mode (prompt_file). Auto-generated in inline mode (prompt). Response content is returned inline only when using prompt parameter." },
       files: { type: "array", items: { type: "string" }, description: "File paths to include as context (contents will be prepended to prompt)" },
       model: { type: "string", description: `Gemini model to use (default: ${GEMINI_DEFAULT_MODEL}). Set OMC_GEMINI_DEFAULT_MODEL env var to change default. Auto-fallback chain: ${GEMINI_MODEL_FALLBACKS.join(" \u2192 ")}.` },

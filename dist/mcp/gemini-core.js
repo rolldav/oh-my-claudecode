@@ -18,7 +18,7 @@ import { createStdoutCollector, safeWriteOutputFile } from './shared-exec.js';
 import { detectGeminiCli } from './cli-detection.js';
 import { getWorktreeRoot } from '../lib/worktree-paths.js';
 import { isExternalPromptAllowed } from './mcp-config.js';
-import { resolveSystemPrompt, buildPromptWithSystemContext, wrapUntrustedFileContent, isValidAgentRoleName, VALID_AGENT_ROLES } from './prompt-injection.js';
+import { resolveSystemPrompt, buildPromptWithSystemContext, wrapUntrustedFileContent, wrapUntrustedCliResponse, isValidAgentRoleName, VALID_AGENT_ROLES } from './prompt-injection.js';
 import { persistPrompt, persistResponse, getExpectedResponsePath, getPromptsDir, generatePromptId, slugify } from './prompt-persistence.js';
 import { writeJobStatus, getStatusFilePath, readJobStatus } from './prompt-persistence.js';
 import { resolveExternalModel, buildFallbackChain, GEMINI_MODEL_FALLBACKS, } from '../features/model-routing/external-model-policy.js';
@@ -469,12 +469,12 @@ export async function handleAskGemini(args) {
     // Presence-based precedence: if `prompt_file` key exists (even invalid value), file mode wins.
     // Separate intent detection (field presence) from content validation (non-empty).
     const inlinePrompt = typeof args.prompt === 'string' ? args.prompt : undefined;
-    const hasPromptFileField = 'prompt_file' in args;
+    const hasPromptFileField = Object.hasOwn(args, 'prompt_file');
     const promptFileInput = typeof args.prompt_file === 'string' ? args.prompt_file : undefined;
     const hasInlineIntent = inlinePrompt !== undefined && !hasPromptFileField;
-    const isInlineMode = hasInlineIntent && !!inlinePrompt.trim();
+    const isInlineMode = hasInlineIntent && inlinePrompt.trim().length > 0;
     // Reject empty/whitespace inline prompt with explicit error BEFORE any side effects
-    if (hasInlineIntent && !inlinePrompt.trim()) {
+    if (hasInlineIntent && !inlinePrompt?.trim()) {
         return {
             content: [{ type: 'text', text: 'Inline prompt is empty. Provide a non-empty prompt string.' }],
             isError: true
@@ -494,11 +494,14 @@ export async function handleAskGemini(args) {
         try {
             const promptsDir = getPromptsDir(baseDir);
             mkdirSync(promptsDir, { recursive: true });
-            const slug = slugify(args.prompt);
-            const filename = `gemini-inline-${slug}-${inlineRequestId}.md`;
-            const inlinePromptPath = join(promptsDir, filename);
-            writeFileSync(inlinePromptPath, args.prompt, 'utf-8');
+            const slug = slugify(inlinePrompt);
+            const inlinePromptPath = join(promptsDir, `gemini-inline-${slug}-${inlineRequestId}.md`);
+            writeFileSync(inlinePromptPath, inlinePrompt, { encoding: 'utf-8', mode: 0o600 });
             args = { ...args, prompt_file: inlinePromptPath };
+            // Auto-generate output_file when not provided in inline mode
+            if (!args.output_file || !args.output_file.trim()) {
+                args = { ...args, output_file: join(promptsDir, `gemini-inline-response-${slug}-${inlineRequestId}.md`) };
+            }
         }
         catch {
             return {
@@ -506,39 +509,36 @@ export async function handleAskGemini(args) {
                 isError: true
             };
         }
-        // Auto-generate output_file when not provided in inline mode
-        if (!args.output_file || !args.output_file.trim()) {
-            const promptsDir = getPromptsDir(baseDir);
-            mkdirSync(promptsDir, { recursive: true });
-            const outSlug = slugify(args.prompt);
-            const outFilename = `gemini-inline-response-${outSlug}-${inlineRequestId}.md`;
-            args = { ...args, output_file: join(promptsDir, outFilename) };
-        }
     }
-    // Validate prompt_file is provided (required unless inline prompt was used)
-    if (!args.prompt_file || !args.prompt_file.trim()) {
+    // Validate that at least one prompt source is provided.
+    // Use type-guarded promptFileInput to avoid .trim() TypeError on non-string values.
+    const effectivePromptFile = isInlineMode ? args.prompt_file : promptFileInput;
+    if (!effectivePromptFile || !effectivePromptFile.trim()) {
         return {
             content: [{ type: 'text', text: "Either 'prompt' (inline) or 'prompt_file' (file path) is required." }],
             isError: true
         };
     }
-    // Validate output_file is provided after prompt source validation
-    if (!args.output_file || !args.output_file.trim()) {
+    // Validate output_file is provided after prompt source validation.
+    // Use typeof guard to avoid .trim() TypeError on non-string values.
+    const effectiveOutputFile = typeof args.output_file === 'string' ? args.output_file : undefined;
+    if (!effectiveOutputFile || !effectiveOutputFile.trim()) {
         return {
-            content: [{ type: 'text', text: 'output_file is required. Specify a path where the response should be written, or use the inline `prompt` parameter for auto-generated paths.' }],
+            content: [{ type: 'text', text: 'output_file is required. Specify a path where the response should be written.' }],
             isError: true
         };
     }
-    // Resolve prompt from prompt_file
+    // Resolve prompt from prompt_file (validated non-empty above)
     let resolvedPrompt;
-    const resolvedPath = resolve(baseDir, args.prompt_file);
+    const promptFile = args.prompt_file;
+    const resolvedPath = resolve(baseDir, promptFile);
     const cwdReal = realpathSync(baseDir);
     const relPath = relative(cwdReal, resolvedPath);
     if (!isExternalPromptAllowed() && (relPath === '..' || relPath.startsWith('..' + sep) || isAbsolute(relPath))) {
         return {
             content: [{
                     type: 'text',
-                    text: `E_PATH_OUTSIDE_WORKDIR_PROMPT: prompt_file '${args.prompt_file}' resolves outside working_directory '${baseDirReal}'.\nRequested: ${args.prompt_file}\nWorking directory: ${baseDirReal}\nResolved working directory: ${baseDirReal}\nPath policy: ${pathPolicy}\nSuggested: place the prompt file within the working directory or set working_directory to a common ancestor`
+                    text: `E_PATH_OUTSIDE_WORKDIR_PROMPT: prompt_file '${promptFile}' resolves outside working_directory '${baseDirReal}'.\nRequested: ${promptFile}\nWorking directory: ${baseDirReal}\nResolved working directory: ${baseDirReal}\nPath policy: ${pathPolicy}\nSuggested: place the prompt file within the working directory or set working_directory to a common ancestor`
                 }],
             isError: true
         };
@@ -550,7 +550,7 @@ export async function handleAskGemini(args) {
     }
     catch (err) {
         return {
-            content: [{ type: 'text', text: `Failed to resolve prompt_file '${args.prompt_file}': ${err.message}` }],
+            content: [{ type: 'text', text: `Failed to resolve prompt_file '${promptFile}': ${err.message}` }],
             isError: true
         };
     }
@@ -559,7 +559,7 @@ export async function handleAskGemini(args) {
         return {
             content: [{
                     type: 'text',
-                    text: `E_PATH_OUTSIDE_WORKDIR_PROMPT: prompt_file '${args.prompt_file}' resolves to a path outside working_directory '${baseDirReal}'.\nRequested: ${args.prompt_file}\nResolved path: ${resolvedReal}\nWorking directory: ${baseDirReal}\nResolved working directory: ${baseDirReal}\nPath policy: ${pathPolicy}\nSuggested: place the prompt file within the working directory or set working_directory to a common ancestor`
+                    text: `E_PATH_OUTSIDE_WORKDIR_PROMPT: prompt_file '${promptFile}' resolves to a path outside working_directory '${baseDirReal}'.\nRequested: ${promptFile}\nResolved path: ${resolvedReal}\nWorking directory: ${baseDirReal}\nResolved working directory: ${baseDirReal}\nPath policy: ${pathPolicy}\nSuggested: place the prompt file within the working directory or set working_directory to a common ancestor`
                 }],
             isError: true
         };
@@ -570,14 +570,14 @@ export async function handleAskGemini(args) {
     }
     catch (err) {
         return {
-            content: [{ type: 'text', text: `Failed to read prompt_file '${args.prompt_file}': ${err.message}` }],
+            content: [{ type: 'text', text: `Failed to read prompt_file '${promptFile}': ${err.message}` }],
             isError: true
         };
     }
     // Check for empty prompt
     if (!resolvedPrompt.trim()) {
         return {
-            content: [{ type: 'text', text: `prompt_file '${args.prompt_file}' is empty.` }],
+            content: [{ type: 'text', text: `prompt_file '${promptFile}' is empty.` }],
             isError: true
         };
     }
@@ -721,7 +721,7 @@ ${resolvedPrompt}`;
                 return {
                     content: [
                         { type: 'text', text: responseLines.join('\n') },
-                        { type: 'text', text: wrapUntrustedFileContent(response, { source: 'inline-cli-response', tool: 'ask_gemini' }) },
+                        { type: 'text', text: wrapUntrustedCliResponse(response, { source: 'inline-cli-response', tool: 'ask_gemini' }) },
                     ]
                 };
             }

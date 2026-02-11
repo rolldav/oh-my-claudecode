@@ -14913,17 +14913,17 @@ function resolveSystemPrompt(systemPrompt, agentRole, provider) {
   }
   return void 0;
 }
-function wrapUntrustedFileContent(filepathOrContent, contentOrMetadata) {
-  if (typeof contentOrMetadata === "string") {
-    return `
---- UNTRUSTED FILE CONTENT (${filepathOrContent}) ---
-${contentOrMetadata}
+function wrapUntrustedFileContent(filepath, content) {
+  return `
+--- UNTRUSTED FILE CONTENT (${filepath}) ---
+${content}
 --- END UNTRUSTED FILE CONTENT ---
 `;
-  }
+}
+function wrapUntrustedCliResponse(content, metadata) {
   return `
---- UNTRUSTED CLI RESPONSE (${contentOrMetadata.tool}:${contentOrMetadata.source}) ---
-${filepathOrContent}
+--- UNTRUSTED CLI RESPONSE (${metadata.tool}:${metadata.source}) ---
+${content}
 --- END UNTRUSTED CLI RESPONSE ---
 `;
 }
@@ -17208,11 +17208,11 @@ Suggested: use a working_directory within the project worktree, or set OMC_ALLOW
     };
   }
   const inlinePrompt = typeof args.prompt === "string" ? args.prompt : void 0;
-  const hasPromptFileField = "prompt_file" in args;
+  const hasPromptFileField = Object.hasOwn(args, "prompt_file");
   const promptFileInput = typeof args.prompt_file === "string" ? args.prompt_file : void 0;
   const hasInlineIntent = inlinePrompt !== void 0 && !hasPromptFileField;
-  const isInlineMode = hasInlineIntent && !!inlinePrompt.trim();
-  if (hasInlineIntent && !inlinePrompt.trim()) {
+  const isInlineMode = hasInlineIntent && inlinePrompt.trim().length > 0;
+  if (hasInlineIntent && !inlinePrompt?.trim()) {
     return {
       content: [{ type: "text", text: "Inline prompt is empty. Provide a non-empty prompt string." }],
       isError: true
@@ -17230,30 +17230,29 @@ Suggested: use a working_directory within the project worktree, or set OMC_ALLOW
     try {
       const promptsDir = getPromptsDir(baseDir);
       (0, import_fs9.mkdirSync)(promptsDir, { recursive: true });
-      const slug = slugify(args.prompt);
+      const slug = slugify(inlinePrompt);
       const inlinePromptFile = (0, import_path9.join)(promptsDir, `codex-inline-${slug}-${inlineRequestId}.md`);
-      (0, import_fs9.writeFileSync)(inlinePromptFile, args.prompt, "utf-8");
+      (0, import_fs9.writeFileSync)(inlinePromptFile, inlinePrompt, { encoding: "utf-8", mode: 384 });
       args = { ...args, prompt_file: inlinePromptFile };
+      if (!args.output_file || !args.output_file.trim()) {
+        args = { ...args, output_file: (0, import_path9.join)(promptsDir, `codex-inline-response-${slug}-${inlineRequestId}.md`) };
+      }
     } catch {
       return {
         content: [{ type: "text", text: "Failed to persist inline prompt. Check working directory permissions and disk space." }],
         isError: true
       };
     }
-    if (!args.output_file || !args.output_file.trim()) {
-      const promptsDir = getPromptsDir(baseDir);
-      (0, import_fs9.mkdirSync)(promptsDir, { recursive: true });
-      const slug = slugify(args.prompt);
-      args = { ...args, output_file: (0, import_path9.join)(promptsDir, `codex-inline-response-${slug}-${inlineRequestId}.md`) };
-    }
   }
-  if (!args.prompt_file || !args.prompt_file.trim()) {
+  const effectivePromptFile = isInlineMode ? args.prompt_file : promptFileInput;
+  if (!effectivePromptFile || !effectivePromptFile.trim()) {
     return {
       content: [{ type: "text", text: "Either 'prompt' (inline) or 'prompt_file' (file path) is required." }],
       isError: true
     };
   }
-  if (!args.output_file || !args.output_file.trim()) {
+  const effectiveOutputFile = typeof args.output_file === "string" ? args.output_file : void 0;
+  if (!effectiveOutputFile || !effectiveOutputFile.trim()) {
     return {
       content: [{ type: "text", text: "output_file is required. Specify a path where the response should be written." }],
       isError: true
@@ -17442,7 +17441,7 @@ path_policy: ${pathPolicy}`
       return {
         content: [
           { type: "text", text: responseLines.join("\n") },
-          { type: "text", text: wrapUntrustedFileContent(response, { source: "inline-cli-response", tool: "ask_codex" }) }
+          { type: "text", text: wrapUntrustedCliResponse(response, { source: "inline-cli-response", tool: "ask_codex" }) }
         ]
       };
     }
@@ -18037,7 +18036,7 @@ var askCodexTool = {
         description: `Required. Agent perspective for Codex. Recommended: ${CODEX_RECOMMENDED_ROLES.join(", ")}. Any valid OMC agent role is accepted.`
       },
       prompt: { type: "string", description: "Inline prompt text. Alternative to prompt_file -- the tool auto-persists to a file for audit trail. Use for simpler invocations where file management is unnecessary. If both prompt and prompt_file are provided, prompt_file takes precedence." },
-      prompt_file: { type: "string", description: "Path to file containing the prompt. Required unless 'prompt' is provided inline. Takes precedence over 'prompt' if both are provided." },
+      prompt_file: { type: "string", description: "Path to file containing the prompt. Required unless 'prompt' is provided inline. Presence of `prompt_file` key selects file mode regardless of value; `prompt_file` must be a non-empty string when used." },
       output_file: { type: "string", description: "Required for file-based mode (prompt_file). Auto-generated in inline mode (prompt). Response content is returned inline only when using prompt parameter." },
       context_files: { type: "array", items: { type: "string" }, description: "File paths to include as context (contents will be prepended to prompt)" },
       model: { type: "string", description: `Codex model to use (default: ${CODEX_DEFAULT_MODEL}). Set OMC_CODEX_DEFAULT_MODEL env var to change default.` },

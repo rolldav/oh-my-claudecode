@@ -1,20 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleAskCodex } from '../mcp/codex-core.js';
 import { handleAskGemini } from '../mcp/gemini-core.js';
-
-const STANDARD_MISSING_PROMPT_ERROR = "Either 'prompt' (inline) or 'prompt_file' (file path) is required";
-const LEGACY_MISSING_PROMPT_ERROR = 'Either prompt (inline string) or prompt_file (path) is required.';
-
-function expectMissingPromptError(text: string): void {
-  expect(
-    text.includes(STANDARD_MISSING_PROMPT_ERROR) || text.includes(LEGACY_MISSING_PROMPT_ERROR),
-  ).toBe(true);
-}
-
-function expectNoMissingPromptError(text: string): void {
-  expect(text).not.toContain(STANDARD_MISSING_PROMPT_ERROR);
-  expect(text).not.toContain(LEGACY_MISSING_PROMPT_ERROR);
-}
+import { expectMissingPromptError, expectNoMissingPromptError } from './helpers/prompt-test-helpers.js';
 
 // Mock CLI detection to return available
 vi.mock('../mcp/cli-detection.js', () => ({

@@ -32,7 +32,11 @@ export declare function resolveSystemPrompt(systemPrompt?: string, agentRole?: s
  * Each file's content is clearly marked as data to analyze, not instructions.
  */
 export declare function wrapUntrustedFileContent(filepath: string, content: string): string;
-export declare function wrapUntrustedFileContent(content: string, metadata: {
+/**
+ * Wrap CLI response content with untrusted delimiters to prevent prompt injection.
+ * Used for inline CLI responses that are returned directly to the caller.
+ */
+export declare function wrapUntrustedCliResponse(content: string, metadata: {
     source: string;
     tool: string;
 }): string;

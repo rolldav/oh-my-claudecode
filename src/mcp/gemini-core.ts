@@ -19,7 +19,7 @@ import { createStdoutCollector, safeWriteOutputFile } from './shared-exec.js';
 import { detectGeminiCli } from './cli-detection.js';
 import { getWorktreeRoot } from '../lib/worktree-paths.js';
 import { isExternalPromptAllowed } from './mcp-config.js';
-import { resolveSystemPrompt, buildPromptWithSystemContext, wrapUntrustedFileContent, isValidAgentRoleName, VALID_AGENT_ROLES } from './prompt-injection.js';
+import { resolveSystemPrompt, buildPromptWithSystemContext, wrapUntrustedFileContent, wrapUntrustedCliResponse, isValidAgentRoleName, VALID_AGENT_ROLES } from './prompt-injection.js';
 import { persistPrompt, persistResponse, getExpectedResponsePath, getPromptsDir, generatePromptId, slugify } from './prompt-persistence.js';
 import { writeJobStatus, getStatusFilePath, readJobStatus } from './prompt-persistence.js';
 import type { JobStatus, BackgroundJobMeta } from './prompt-persistence.js';
@@ -522,13 +522,13 @@ export async function handleAskGemini(args: {
   // Presence-based precedence: if `prompt_file` key exists (even invalid value), file mode wins.
   // Separate intent detection (field presence) from content validation (non-empty).
   const inlinePrompt = typeof args.prompt === 'string' ? args.prompt : undefined;
-  const hasPromptFileField = 'prompt_file' in args;
+  const hasPromptFileField = Object.hasOwn(args, 'prompt_file');
   const promptFileInput = typeof args.prompt_file === 'string' ? args.prompt_file : undefined;
   const hasInlineIntent = inlinePrompt !== undefined && !hasPromptFileField;
-  const isInlineMode = hasInlineIntent && !!inlinePrompt.trim();
+  const isInlineMode = hasInlineIntent && inlinePrompt.trim().length > 0;
 
   // Reject empty/whitespace inline prompt with explicit error BEFORE any side effects
-  if (hasInlineIntent && !inlinePrompt!.trim()) {
+  if (hasInlineIntent && !inlinePrompt?.trim()) {
     return {
       content: [{ type: 'text' as const, text: 'Inline prompt is empty. Provide a non-empty prompt string.' }],
       isError: true
@@ -552,25 +552,20 @@ export async function handleAskGemini(args: {
     try {
       const promptsDir = getPromptsDir(baseDir);
       mkdirSync(promptsDir, { recursive: true });
-      const slug = slugify(args.prompt!);
-      const filename = `gemini-inline-${slug}-${inlineRequestId}.md`;
-      const inlinePromptPath = join(promptsDir, filename);
-      writeFileSync(inlinePromptPath, args.prompt!, 'utf-8');
+      const slug = slugify(inlinePrompt as string);
+      const inlinePromptPath = join(promptsDir, `gemini-inline-${slug}-${inlineRequestId}.md`);
+      writeFileSync(inlinePromptPath, inlinePrompt as string, { encoding: 'utf-8', mode: 0o600 });
       args = { ...args, prompt_file: inlinePromptPath };
+
+      // Auto-generate output_file when not provided in inline mode
+      if (!args.output_file || !args.output_file.trim()) {
+        args = { ...args, output_file: join(promptsDir, `gemini-inline-response-${slug}-${inlineRequestId}.md`) };
+      }
     } catch {
       return {
         content: [{ type: 'text' as const, text: 'Failed to persist inline prompt. Check working directory permissions and disk space.' }],
         isError: true
       };
-    }
-
-    // Auto-generate output_file when not provided in inline mode
-    if (!args.output_file || !args.output_file.trim()) {
-      const promptsDir = getPromptsDir(baseDir);
-      mkdirSync(promptsDir, { recursive: true });
-      const outSlug = slugify(args.prompt!);
-      const outFilename = `gemini-inline-response-${outSlug}-${inlineRequestId}.md`;
-      args = { ...args, output_file: join(promptsDir, outFilename) };
     }
   }
 
@@ -808,7 +803,7 @@ ${resolvedPrompt}`;
         return {
           content: [
             { type: 'text' as const, text: responseLines.join('\n') },
-            { type: 'text' as const, text: wrapUntrustedFileContent(response, { source: 'inline-cli-response', tool: 'ask_gemini' }) },
+            { type: 'text' as const, text: wrapUntrustedCliResponse(response, { source: 'inline-cli-response', tool: 'ask_gemini' }) },
           ]
         };
       }

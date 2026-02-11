@@ -15,7 +15,7 @@ import { createStdoutCollector, safeWriteOutputFile } from './shared-exec.js';
 import { detectCodexCli } from './cli-detection.js';
 import { getWorktreeRoot } from '../lib/worktree-paths.js';
 import { isExternalPromptAllowed } from './mcp-config.js';
-import { resolveSystemPrompt, buildPromptWithSystemContext, wrapUntrustedFileContent, isValidAgentRoleName, VALID_AGENT_ROLES } from './prompt-injection.js';
+import { resolveSystemPrompt, buildPromptWithSystemContext, wrapUntrustedFileContent, wrapUntrustedCliResponse, isValidAgentRoleName, VALID_AGENT_ROLES } from './prompt-injection.js';
 import { persistPrompt, persistResponse, getExpectedResponsePath, getPromptsDir, slugify, generatePromptId } from './prompt-persistence.js';
 import { writeJobStatus, getStatusFilePath, readJobStatus } from './prompt-persistence.js';
 import type { JobStatus, BackgroundJobMeta } from './prompt-persistence.js';
@@ -670,13 +670,13 @@ Suggested: use a working_directory within the project worktree, or set OMC_ALLOW
   // Presence-based precedence: if `prompt_file` key exists (even invalid value), file mode wins.
   // Separate intent detection (field presence) from content validation (non-empty).
   const inlinePrompt = typeof args.prompt === 'string' ? args.prompt : undefined;
-  const hasPromptFileField = 'prompt_file' in args;
+  const hasPromptFileField = Object.hasOwn(args, 'prompt_file');
   const promptFileInput = typeof args.prompt_file === 'string' ? args.prompt_file : undefined;
   const hasInlineIntent = inlinePrompt !== undefined && !hasPromptFileField;
-  const isInlineMode = hasInlineIntent && !!inlinePrompt.trim();
+  const isInlineMode = hasInlineIntent && inlinePrompt.trim().length > 0;
 
   // Reject empty/whitespace inline prompt with explicit error BEFORE any side effects
-  if (hasInlineIntent && !inlinePrompt!.trim()) {
+  if (hasInlineIntent && !inlinePrompt?.trim()) {
     return {
       content: [{ type: 'text' as const, text: 'Inline prompt is empty. Provide a non-empty prompt string.' }],
       isError: true
@@ -699,23 +699,20 @@ Suggested: use a working_directory within the project worktree, or set OMC_ALLOW
     try {
       const promptsDir = getPromptsDir(baseDir);
       mkdirSync(promptsDir, { recursive: true });
-      const slug = slugify(args.prompt!);
+      const slug = slugify(inlinePrompt as string);
       const inlinePromptFile = join(promptsDir, `codex-inline-${slug}-${inlineRequestId}.md`);
-      writeFileSync(inlinePromptFile, args.prompt!, 'utf-8');
+      writeFileSync(inlinePromptFile, inlinePrompt as string, { encoding: 'utf-8', mode: 0o600 });
       args = { ...args, prompt_file: inlinePromptFile };
+
+      // Auto-generate output_file when using inline mode
+      if (!args.output_file || !args.output_file.trim()) {
+        args = { ...args, output_file: join(promptsDir, `codex-inline-response-${slug}-${inlineRequestId}.md`) };
+      }
     } catch {
       return {
         content: [{ type: 'text' as const, text: 'Failed to persist inline prompt. Check working directory permissions and disk space.' }],
         isError: true
       };
-    }
-
-    // Auto-generate output_file when using inline mode
-    if (!args.output_file || !args.output_file.trim()) {
-      const promptsDir = getPromptsDir(baseDir);
-      mkdirSync(promptsDir, { recursive: true });
-      const slug = slugify(args.prompt!);
-      args = { ...args, output_file: join(promptsDir, `codex-inline-response-${slug}-${inlineRequestId}.md`) };
     }
   }
 
@@ -951,7 +948,7 @@ ${resolvedPrompt}`;
       return {
         content: [
           { type: 'text' as const, text: responseLines.join('\n') },
-          { type: 'text' as const, text: wrapUntrustedFileContent(response, { source: 'inline-cli-response', tool: 'ask_codex' }) },
+          { type: 'text' as const, text: wrapUntrustedCliResponse(response, { source: 'inline-cli-response', tool: 'ask_codex' }) },
         ]
       };
     }

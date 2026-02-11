@@ -115,11 +115,19 @@ export function resolveSystemPrompt(systemPrompt, agentRole, provider) {
     }
     return undefined;
 }
-export function wrapUntrustedFileContent(filepathOrContent, contentOrMetadata) {
-    if (typeof contentOrMetadata === 'string') {
-        return `\n--- UNTRUSTED FILE CONTENT (${filepathOrContent}) ---\n${contentOrMetadata}\n--- END UNTRUSTED FILE CONTENT ---\n`;
-    }
-    return `\n--- UNTRUSTED CLI RESPONSE (${contentOrMetadata.tool}:${contentOrMetadata.source}) ---\n${filepathOrContent}\n--- END UNTRUSTED CLI RESPONSE ---\n`;
+/**
+ * Wrap file content with untrusted delimiters to prevent prompt injection.
+ * Each file's content is clearly marked as data to analyze, not instructions.
+ */
+export function wrapUntrustedFileContent(filepath, content) {
+    return `\n--- UNTRUSTED FILE CONTENT (${filepath}) ---\n${content}\n--- END UNTRUSTED FILE CONTENT ---\n`;
+}
+/**
+ * Wrap CLI response content with untrusted delimiters to prevent prompt injection.
+ * Used for inline CLI responses that are returned directly to the caller.
+ */
+export function wrapUntrustedCliResponse(content, metadata) {
+    return `\n--- UNTRUSTED CLI RESPONSE (${metadata.tool}:${metadata.source}) ---\n${content}\n--- END UNTRUSTED CLI RESPONSE ---\n`;
 }
 /**
  * Build the full prompt with system prompt prepended.
