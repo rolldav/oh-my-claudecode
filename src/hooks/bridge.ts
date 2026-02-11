@@ -541,6 +541,16 @@ async function processSessionStart(input: HookInput): Promise<HookOutput> {
   // Trigger silent auto-update check (non-blocking, checks config internally)
   initSilentAutoUpdate();
 
+  // Send session-start notification (non-blocking, swallows errors)
+  if (sessionId) {
+    import("../notifications/index.js").then(({ notify }) =>
+      notify("session-start", {
+        sessionId,
+        projectPath: directory,
+      }).catch(() => {})
+    ).catch(() => {});
+  }
+
   const messages: string[] = [];
 
   // Check for active autopilot state - only restore if it belongs to this session

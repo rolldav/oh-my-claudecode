@@ -13,7 +13,6 @@ import { fileURLToPath, pathToFileURL } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const configDir = process.env.CLAUDE_CONFIG_DIR || join(configDir);
 
 /** Claude config directory (respects CLAUDE_CONFIG_DIR env var) */
 const configDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');

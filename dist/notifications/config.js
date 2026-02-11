@@ -6,8 +6,8 @@
  */
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { homedir } from 'os';
-const CONFIG_FILE = join(homedir(), '.claude', '.omc-config.json');
+import { getClaudeConfigDir } from '../utils/paths.js';
+const CONFIG_FILE = join(getClaudeConfigDir(), '.omc-config.json');
 /**
  * Read raw config from .omc-config.json
  */
@@ -83,9 +83,9 @@ function buildConfigFromEnv() {
         };
         hasAnyPlatform = true;
     }
-    // Telegram
-    const telegramToken = process.env.OMC_TELEGRAM_BOT_TOKEN;
-    const telegramChatId = process.env.OMC_TELEGRAM_CHAT_ID;
+    // Telegram (support both OMC_TELEGRAM_BOT_TOKEN and OMC_TELEGRAM_NOTIFIER_BOT_TOKEN)
+    const telegramToken = process.env.OMC_TELEGRAM_BOT_TOKEN || process.env.OMC_TELEGRAM_NOTIFIER_BOT_TOKEN;
+    const telegramChatId = process.env.OMC_TELEGRAM_CHAT_ID || process.env.OMC_TELEGRAM_NOTIFIER_CHAT_ID || process.env.OMC_TELEGRAM_NOTIFIER_UID;
     if (telegramToken && telegramChatId) {
         config.telegram = {
             enabled: true,
