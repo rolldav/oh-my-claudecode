@@ -8,7 +8,7 @@ vi.mock('fs', async () => {
     };
 });
 import { existsSync, readFileSync } from 'fs';
-import { isHudEnabledInConfig, CLAUDE_CONFIG_DIR } from '../installer/index.js';
+import { isHudEnabledInConfig, isOmcStatusLine, CLAUDE_CONFIG_DIR } from '../installer/index.js';
 import { join } from 'path';
 const mockedExistsSync = vi.mocked(existsSync);
 const mockedReadFileSync = vi.mocked(readFileSync);
@@ -62,6 +62,41 @@ describe('InstallOptions skipHud', () => {
     it('should accept skipHud as undefined (default)', () => {
         const opts = {};
         expect(opts.skipHud).toBeUndefined();
+    });
+});
+describe('isOmcStatusLine', () => {
+    it('should return true for OMC HUD statusLine', () => {
+        expect(isOmcStatusLine({
+            type: 'command',
+            command: 'node /home/user/.claude/hud/omc-hud.mjs'
+        })).toBe(true);
+    });
+    it('should return true for any command containing omc-hud', () => {
+        expect(isOmcStatusLine({
+            type: 'command',
+            command: '/usr/local/bin/node /some/path/omc-hud.mjs'
+        })).toBe(true);
+    });
+    it('should return false for custom statusLine', () => {
+        expect(isOmcStatusLine({
+            type: 'command',
+            command: 'my-custom-statusline --fancy'
+        })).toBe(false);
+    });
+    it('should return false for null', () => {
+        expect(isOmcStatusLine(null)).toBe(false);
+    });
+    it('should return false for undefined', () => {
+        expect(isOmcStatusLine(undefined)).toBe(false);
+    });
+    it('should return false for non-object', () => {
+        expect(isOmcStatusLine('string')).toBe(false);
+    });
+    it('should return false for object without command', () => {
+        expect(isOmcStatusLine({ type: 'command' })).toBe(false);
+    });
+    it('should return false for object with non-string command', () => {
+        expect(isOmcStatusLine({ type: 'command', command: 42 })).toBe(false);
     });
 });
 //# sourceMappingURL=installer-hud-skip.test.js.map

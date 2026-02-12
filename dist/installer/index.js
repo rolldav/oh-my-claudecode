@@ -79,6 +79,24 @@ export function isHudEnabledInConfig() {
     }
 }
 /**
+ * Detect whether a statusLine config belongs to oh-my-claudecode.
+ *
+ * Checks the command string for known OMC HUD paths so that custom
+ * (non-OMC) statusLine configurations are preserved during forced
+ * updates/reconciliation.
+ *
+ * @param statusLine - The statusLine setting object from settings.json
+ * @returns true if the statusLine was set by OMC
+ */
+export function isOmcStatusLine(statusLine) {
+    if (!statusLine || typeof statusLine !== 'object')
+        return false;
+    const sl = statusLine;
+    if (typeof sl.command !== 'string')
+        return false;
+    return sl.command.includes('omc-hud');
+}
+/**
  * Detect whether a hook command belongs to oh-my-claudecode.
  *
  * Uses substring matching rather than word-boundary regex.
@@ -667,6 +685,7 @@ export function install(options = {}) {
                     result.hooksConfigured = true;
                 }
                 // 2. Configure statusLine (always, even in plugin mode)
+                // Preserve custom (non-OMC) statusLine during forced updates (#567)
                 if (hudScriptPath) {
                     if (!existingSettings.statusLine) {
                         existingSettings.statusLine = {
@@ -675,12 +694,15 @@ export function install(options = {}) {
                         };
                         log('  Configured statusLine');
                     }
-                    else if (options.force) {
+                    else if (options.force && isOmcStatusLine(existingSettings.statusLine)) {
                         existingSettings.statusLine = {
                             type: 'command',
                             command: 'node ' + hudScriptPath
                         };
                         log('  Updated statusLine (--force)');
+                    }
+                    else if (options.force) {
+                        log('  statusLine owned by another tool, preserving (use manual edit to override)');
                     }
                     else {
                         log('  statusLine already configured, skipping (use --force to override)');
