@@ -36,6 +36,8 @@ interface UsageCache {
   timestamp: number;
   data: RateLimits | null;
   error?: boolean;
+  /** Provider that produced this cache entry */
+  source?: 'anthropic' | 'zai';
 }
 
 interface OAuthCredentials {
@@ -127,7 +129,7 @@ function readCache(): UsageCache | null {
 /**
  * Write usage data to cache
  */
-function writeCache(data: RateLimits | null, error = false): void {
+function writeCache(data: RateLimits | null, error = false, source?: 'anthropic' | 'zai'): void {
   try {
     const cachePath = getCachePath();
     const cacheDir = dirname(cachePath);
@@ -140,6 +142,7 @@ function writeCache(data: RateLimits | null, error = false): void {
       timestamp: Date.now(),
       data,
       error,
+      source,
     };
 
     writeFileSync(cachePath, JSON.stringify(cache, null, 2));
@@ -565,26 +568,27 @@ export function parseZaiResponse(response: ZaiQuotaResponse): RateLimits | null 
  * - API call failed
  */
 export async function getUsage(): Promise<RateLimits | null> {
-  // Check cache first (single cache file for all sources)
+  const baseUrl = process.env.ANTHROPIC_BASE_URL;
+  const authToken = process.env.ANTHROPIC_AUTH_TOKEN;
+  const isZai = baseUrl != null && isZaiHost(baseUrl);
+  const currentSource: 'anthropic' | 'zai' = isZai && authToken ? 'zai' : 'anthropic';
+
+  // Check cache first (source must match to avoid cross-provider stale data)
   const cache = readCache();
-  if (cache && isCacheValid(cache)) {
+  if (cache && isCacheValid(cache) && cache.source === currentSource) {
     return cache.data;
   }
 
   // z.ai path (must precede OAuth check to avoid stale Anthropic credentials)
-  const baseUrl = process.env.ANTHROPIC_BASE_URL;
-  const authToken = process.env.ANTHROPIC_AUTH_TOKEN;
-  const isZai = baseUrl != null && isZaiHost(baseUrl);
-
   if (isZai && authToken) {
     const response = await fetchUsageFromZai();
     if (!response) {
-      writeCache(null, true);
+      writeCache(null, true, 'zai');
       return null;
     }
 
     const usage = parseZaiResponse(response);
-    writeCache(usage, !usage);
+    writeCache(usage, !usage, 'zai');
     return usage;
   }
 
@@ -614,17 +618,17 @@ export async function getUsage(): Promise<RateLimits | null> {
     if (creds) {
       const response = await fetchUsageFromApi(creds.accessToken);
       if (!response) {
-        writeCache(null, true);
+        writeCache(null, true, 'anthropic');
         return null;
       }
 
       const usage = parseUsageResponse(response);
-      writeCache(usage, !usage);
+      writeCache(usage, !usage, 'anthropic');
       return usage;
     }
   }
 
   // No credentials available
-  writeCache(null, true);
+  writeCache(null, true, 'anthropic');
   return null;
 }

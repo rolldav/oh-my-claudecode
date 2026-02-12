@@ -83,7 +83,7 @@ function readCache() {
 /**
  * Write usage data to cache
  */
-function writeCache(data, error = false) {
+function writeCache(data, error = false, source) {
     try {
         const cachePath = getCachePath();
         const cacheDir = dirname(cachePath);
@@ -94,6 +94,7 @@ function writeCache(data, error = false) {
             timestamp: Date.now(),
             data,
             error,
+            source,
         };
         writeFileSync(cachePath, JSON.stringify(cache, null, 2));
     }
@@ -484,23 +485,24 @@ export function parseZaiResponse(response) {
  * - API call failed
  */
 export async function getUsage() {
-    // Check cache first (single cache file for all sources)
-    const cache = readCache();
-    if (cache && isCacheValid(cache)) {
-        return cache.data;
-    }
-    // z.ai path (must precede OAuth check to avoid stale Anthropic credentials)
     const baseUrl = process.env.ANTHROPIC_BASE_URL;
     const authToken = process.env.ANTHROPIC_AUTH_TOKEN;
     const isZai = baseUrl != null && isZaiHost(baseUrl);
+    const currentSource = isZai && authToken ? 'zai' : 'anthropic';
+    // Check cache first (source must match to avoid cross-provider stale data)
+    const cache = readCache();
+    if (cache && isCacheValid(cache) && cache.source === currentSource) {
+        return cache.data;
+    }
+    // z.ai path (must precede OAuth check to avoid stale Anthropic credentials)
     if (isZai && authToken) {
         const response = await fetchUsageFromZai();
         if (!response) {
-            writeCache(null, true);
+            writeCache(null, true, 'zai');
             return null;
         }
         const usage = parseZaiResponse(response);
-        writeCache(usage, !usage);
+        writeCache(usage, !usage, 'zai');
         return usage;
     }
     // Anthropic OAuth path (official Claude Code support)
@@ -530,16 +532,16 @@ export async function getUsage() {
         if (creds) {
             const response = await fetchUsageFromApi(creds.accessToken);
             if (!response) {
-                writeCache(null, true);
+                writeCache(null, true, 'anthropic');
                 return null;
             }
             const usage = parseUsageResponse(response);
-            writeCache(usage, !usage);
+            writeCache(usage, !usage, 'anthropic');
             return usage;
         }
     }
     // No credentials available
-    writeCache(null, true);
+    writeCache(null, true, 'anthropic');
     return null;
 }
 //# sourceMappingURL=usage-api.js.map

@@ -123,14 +123,48 @@ describe('parseZaiResponse', () => {
         expect(result.fiveHourPercent).toBe(100);
         expect(result.monthlyPercent).toBe(0);
     });
+    it('parses monthly-only limited state (TIME_LIMIT without TOKENS_LIMIT)', () => {
+        const resetTime = Date.now() + 86400_000 * 7;
+        const response = {
+            data: {
+                limits: [
+                    { type: 'TIME_LIMIT', percentage: 90, nextResetTime: resetTime },
+                ],
+            },
+        };
+        const result = parseZaiResponse(response);
+        expect(result).not.toBeNull();
+        expect(result.fiveHourPercent).toBe(0); // clamped from undefined
+        expect(result.monthlyPercent).toBe(90);
+        expect(result.monthlyResetsAt).toBeInstanceOf(Date);
+        expect(result.monthlyResetsAt.getTime()).toBe(resetTime);
+        expect(result.weeklyPercent).toBeUndefined();
+    });
+    it('handles TIME_LIMIT without nextResetTime', () => {
+        const response = {
+            data: {
+                limits: [
+                    { type: 'TOKENS_LIMIT', percentage: 10 },
+                    { type: 'TIME_LIMIT', percentage: 50 },
+                ],
+            },
+        };
+        const result = parseZaiResponse(response);
+        expect(result).not.toBeNull();
+        expect(result.monthlyPercent).toBe(50);
+        expect(result.monthlyResetsAt).toBeNull();
+    });
 });
 describe('getUsage routing', () => {
     const originalEnv = { ...process.env };
-    beforeEach(() => {
+    let httpsModule;
+    beforeEach(async () => {
         vi.clearAllMocks();
         // Reset env
         delete process.env.ANTHROPIC_BASE_URL;
         delete process.env.ANTHROPIC_AUTH_TOKEN;
+        // Get the mocked https module for assertions
+        httpsModule = await import('https');
     });
     afterEach(() => {
         process.env = { ...originalEnv };
@@ -138,22 +172,30 @@ describe('getUsage routing', () => {
     it('returns null when no credentials and no z.ai env', async () => {
         const result = await getUsage();
         expect(result).toBeNull();
+        // No network call should be made without credentials
+        expect(httpsModule.default.request).not.toHaveBeenCalled();
     });
     it('routes to z.ai when ANTHROPIC_BASE_URL is z.ai host', async () => {
         process.env.ANTHROPIC_BASE_URL = 'https://api.z.ai/v1';
         process.env.ANTHROPIC_AUTH_TOKEN = 'test-token';
-        // The https.request mock will cause fetchUsageFromZai to resolve(null)
-        // since we haven't set up the full mock chain — getUsage returns null
+        // https.request mock not wired, so fetchUsageFromZai resolves to null
         const result = await getUsage();
-        // z.ai path was attempted (returns null due to mock), not Anthropic OAuth
         expect(result).toBeNull();
+        // Verify z.ai quota endpoint was called
+        expect(httpsModule.default.request).toHaveBeenCalledTimes(1);
+        const callArgs = httpsModule.default.request.mock.calls[0][0];
+        expect(callArgs.hostname).toBe('api.z.ai');
+        expect(callArgs.path).toBe('/api/monitor/usage/quota/limit');
     });
     it('does NOT route to z.ai for look-alike hosts', async () => {
         process.env.ANTHROPIC_BASE_URL = 'https://z.ai.evil.tld/v1';
         process.env.ANTHROPIC_AUTH_TOKEN = 'test-token';
         const result = await getUsage();
-        // Should fall through to OAuth path (also null due to mocks), not z.ai
         expect(result).toBeNull();
+        // Should NOT call https.request with z.ai endpoint.
+        // Falls through to OAuth path which has no credentials (mocked),
+        // so no network call should be made at all.
+        expect(httpsModule.default.request).not.toHaveBeenCalled();
     });
 });
 //# sourceMappingURL=usage-api.test.js.map
