@@ -227,14 +227,17 @@ function loadAgentDefinitions() {
 }
 /**
  * Load command definitions from /commands/*.md files
+ *
+ * NOTE: The commands/ directory was removed in v4.1.16 (#582).
+ * All commands are now plugin-scoped skills. This function returns
+ * an empty object for backward compatibility.
  */
 function loadCommandDefinitions() {
     const commandsDir = join(getPackageDir(), 'commands');
-    const definitions = {};
     if (!existsSync(commandsDir)) {
-        console.error(`FATAL: commands directory not found: ${commandsDir}`);
-        process.exit(1);
+        return {};
     }
+    const definitions = {};
     for (const file of readdirSync(commandsDir)) {
         if (file.endsWith('.md')) {
             definitions[file] = readFileSync(join(commandsDir, file), 'utf-8');
@@ -369,9 +372,7 @@ export function install(options = {}) {
             if (!existsSync(AGENTS_DIR)) {
                 mkdirSync(AGENTS_DIR, { recursive: true });
             }
-            if (!existsSync(COMMANDS_DIR)) {
-                mkdirSync(COMMANDS_DIR, { recursive: true });
-            }
+            // NOTE: COMMANDS_DIR creation removed - commands/ deprecated in v4.1.16 (#582)
             if (!existsSync(SKILLS_DIR)) {
                 mkdirSync(SKILLS_DIR, { recursive: true });
             }
@@ -745,7 +746,7 @@ export function install(options = {}) {
  * Check if OMC is already installed
  */
 export function isInstalled() {
-    return existsSync(VERSION_FILE) && existsSync(AGENTS_DIR) && existsSync(COMMANDS_DIR);
+    return existsSync(VERSION_FILE) && existsSync(AGENTS_DIR);
 }
 /**
  * Get installation info
