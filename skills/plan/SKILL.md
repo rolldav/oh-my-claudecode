@@ -63,19 +63,11 @@ Jumping into code without understanding requirements leads to rework, scope cree
 ### Consensus Mode (`--consensus` / "ralplan")
 
 1. **Planner** creates initial plan
-2. **User feedback**: **MUST** use `AskUserQuestion` to present the draft plan with these options:
-   - **Proceed to review** — send to Architect and Critic for evaluation
-   - **Request changes** — return to step 1 with user feedback incorporated
-   - **Skip review** — go directly to final approval (step 6)
-3. **Architect** reviews for architectural soundness (prefer `ask_codex` with `architect` role)
-4. **Critic** evaluates against quality criteria (prefer `ask_codex` with `critic` role)
-5. If Critic rejects: iterate with feedback (max 5 iterations)
-6. On Critic approval: **MUST** use `AskUserQuestion` to present the plan with these options:
-   - **Approve and execute** — proceed to implementation via ralph+ultrawork
-   - **Request changes** — return to step 1 with user feedback
-   - **Reject** — discard the plan entirely
-7. User chooses via the structured `AskUserQuestion` UI (never ask for approval in plain text)
-8. On user approval: **MUST** invoke `Skill("oh-my-claudecode:ralph")` with the approved plan path from `.omc/plans/` as context. Do NOT implement directly. Do NOT edit source code files in the planning agent. The ralph skill handles execution via ultrawork parallel agents.
+2. **Architect** reviews for architectural soundness (prefer `ask_codex` with `architect` role)
+3. **Critic** evaluates against quality criteria (prefer `ask_codex` with `critic` role)
+4. If Critic rejects: iterate with feedback (max 5 iterations)
+5. On Critic approval: enter Plan Mode for explicit user consent
+6. User chooses: Approve (execute), Request changes (re-plan), or Reject (discard)
 
 ### Review Mode (`--review`)
 
@@ -104,8 +96,6 @@ Plans are saved to `.omc/plans/`. Drafts go to `.omc/drafts/`.
 - Use `ask_codex` with `agent_role: "analyst"` for requirements analysis
 - Use `ask_codex` with `agent_role: "critic"` for plan review in consensus and review modes
 - If ToolSearch finds no MCP tools or Codex is unavailable, fall back to equivalent Claude agents -- never block on external tools
-- In consensus mode, **MUST** use `AskUserQuestion` for the user feedback step (step 2) and the final approval step (step 6) -- never ask for approval in plain text
-- In consensus mode, on user approval **MUST** invoke `Skill("oh-my-claudecode:ralph")` for execution (step 8) -- never implement directly in the planning agent
 </Tool_Usage>
 
 <Examples>
@@ -162,7 +152,7 @@ Why bad: Decision fatigue. Present one option with trade-offs, get reaction, the
 - Stop interviewing when requirements are clear enough to plan -- do not over-interview
 - In consensus mode, stop after 5 Planner/Architect/Critic iterations and present the best version
 - Consensus mode requires explicit user approval before any implementation begins
-- If the user says "just do it" or "skip planning", **MUST** invoke `Skill("oh-my-claudecode:ralph")` to transition to execution mode. Do NOT implement directly in the planning agent.
+- If the user says "just do it" or "skip planning", transition to execution mode (ralph or executor)
 - Escalate to the user when there are irreconcilable trade-offs that require a business decision
 </Escalation_And_Stop_Conditions>
 

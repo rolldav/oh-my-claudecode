@@ -58,80 +58,54 @@ function formatResetTime(date: Date | null | undefined): string | null {
 /**
  * Render rate limits display.
  *
- * Format: 5h:45%(3h42m) wk:12%(2d5h) mo:8%(15d3h)
+ * Format: 5h:45%(3h42m) wk:12%(2d5h)
  */
 export function renderRateLimits(limits: RateLimits | null): string | null {
   if (!limits) return null;
 
   const fiveHour = Math.min(100, Math.max(0, Math.round(limits.fiveHourPercent)));
-  const fiveHourColor = getColor(fiveHour);
-  const fiveHourReset = formatResetTime(limits.fiveHourResetsAt);
+  const weekly = Math.min(100, Math.max(0, Math.round(limits.weeklyPercent)));
 
+  const fiveHourColor = getColor(fiveHour);
+  const weeklyColor = getColor(weekly);
+
+  // Format reset times
+  const fiveHourReset = formatResetTime(limits.fiveHourResetsAt);
+  const weeklyReset = formatResetTime(limits.weeklyResetsAt);
+
+  // Build parts with optional reset times
   const fiveHourPart = fiveHourReset
     ? `5h:${fiveHourColor}${fiveHour}%${RESET}${DIM}(${fiveHourReset})${RESET}`
     : `5h:${fiveHourColor}${fiveHour}%${RESET}`;
 
-  const parts = [fiveHourPart];
+  const weeklyPart = weeklyReset
+    ? `${DIM}wk:${RESET}${weeklyColor}${weekly}%${RESET}${DIM}(${weeklyReset})${RESET}`
+    : `${DIM}wk:${RESET}${weeklyColor}${weekly}%${RESET}`;
 
-  if (limits.weeklyPercent != null) {
-    const weekly = Math.min(100, Math.max(0, Math.round(limits.weeklyPercent)));
-    const weeklyColor = getColor(weekly);
-    const weeklyReset = formatResetTime(limits.weeklyResetsAt);
-
-    const weeklyPart = weeklyReset
-      ? `${DIM}wk:${RESET}${weeklyColor}${weekly}%${RESET}${DIM}(${weeklyReset})${RESET}`
-      : `${DIM}wk:${RESET}${weeklyColor}${weekly}%${RESET}`;
-
-    parts.push(weeklyPart);
-  }
-
-  if (limits.monthlyPercent != null) {
-    const monthly = Math.min(100, Math.max(0, Math.round(limits.monthlyPercent)));
-    const monthlyColor = getColor(monthly);
-    const monthlyReset = formatResetTime(limits.monthlyResetsAt);
-
-    const monthlyPart = monthlyReset
-      ? `${DIM}mo:${RESET}${monthlyColor}${monthly}%${RESET}${DIM}(${monthlyReset})${RESET}`
-      : `${DIM}mo:${RESET}${monthlyColor}${monthly}%${RESET}`;
-
-    parts.push(monthlyPart);
-  }
-
-  return parts.join(' ');
+  return `${fiveHourPart} ${weeklyPart}`;
 }
 
 /**
  * Render compact rate limits (just percentages).
  *
- * Format: 45%/12% or 45%/12%/8% (with monthly)
+ * Format: 45%/12%
  */
 export function renderRateLimitsCompact(limits: RateLimits | null): string | null {
   if (!limits) return null;
 
   const fiveHour = Math.min(100, Math.max(0, Math.round(limits.fiveHourPercent)));
+  const weekly = Math.min(100, Math.max(0, Math.round(limits.weeklyPercent)));
+
   const fiveHourColor = getColor(fiveHour);
+  const weeklyColor = getColor(weekly);
 
-  const parts = [`${fiveHourColor}${fiveHour}%${RESET}`];
-
-  if (limits.weeklyPercent != null) {
-    const weekly = Math.min(100, Math.max(0, Math.round(limits.weeklyPercent)));
-    const weeklyColor = getColor(weekly);
-    parts.push(`${weeklyColor}${weekly}%${RESET}`);
-  }
-
-  if (limits.monthlyPercent != null) {
-    const monthly = Math.min(100, Math.max(0, Math.round(limits.monthlyPercent)));
-    const monthlyColor = getColor(monthly);
-    parts.push(`${monthlyColor}${monthly}%${RESET}`);
-  }
-
-  return parts.join('/');
+  return `${fiveHourColor}${fiveHour}%${RESET}/${weeklyColor}${weekly}%${RESET}`;
 }
 
 /**
  * Render rate limits with visual progress bars.
  *
- * Format: 5h:[████░░░░░░]45%(3h42m) wk:[█░░░░░░░░░]12%(2d5h) mo:[░░░░░░░░░░]8%(15d3h)
+ * Format: 5h:[████░░░░░░]45%(3h42m) wk:[█░░░░░░░░░]12%(2d5h)
  */
 export function renderRateLimitsWithBar(
   limits: RateLimits | null,
@@ -140,47 +114,32 @@ export function renderRateLimitsWithBar(
   if (!limits) return null;
 
   const fiveHour = Math.min(100, Math.max(0, Math.round(limits.fiveHourPercent)));
+  const weekly = Math.min(100, Math.max(0, Math.round(limits.weeklyPercent)));
+
   const fiveHourColor = getColor(fiveHour);
+  const weeklyColor = getColor(weekly);
+
+  // Build bars
   const fiveHourFilled = Math.round((fiveHour / 100) * barWidth);
   const fiveHourEmpty = barWidth - fiveHourFilled;
   const fiveHourBar = `${fiveHourColor}${'█'.repeat(fiveHourFilled)}${DIM}${'░'.repeat(fiveHourEmpty)}${RESET}`;
-  const fiveHourReset = formatResetTime(limits.fiveHourResetsAt);
 
+  const weeklyFilled = Math.round((weekly / 100) * barWidth);
+  const weeklyEmpty = barWidth - weeklyFilled;
+  const weeklyBar = `${weeklyColor}${'█'.repeat(weeklyFilled)}${DIM}${'░'.repeat(weeklyEmpty)}${RESET}`;
+
+  // Format reset times
+  const fiveHourReset = formatResetTime(limits.fiveHourResetsAt);
+  const weeklyReset = formatResetTime(limits.weeklyResetsAt);
+
+  // Build parts with bars
   const fiveHourPart = fiveHourReset
     ? `5h:[${fiveHourBar}]${fiveHourColor}${fiveHour}%${RESET}${DIM}(${fiveHourReset})${RESET}`
     : `5h:[${fiveHourBar}]${fiveHourColor}${fiveHour}%${RESET}`;
 
-  const parts = [fiveHourPart];
+  const weeklyPart = weeklyReset
+    ? `${DIM}wk:${RESET}[${weeklyBar}]${weeklyColor}${weekly}%${RESET}${DIM}(${weeklyReset})${RESET}`
+    : `${DIM}wk:${RESET}[${weeklyBar}]${weeklyColor}${weekly}%${RESET}`;
 
-  if (limits.weeklyPercent != null) {
-    const weekly = Math.min(100, Math.max(0, Math.round(limits.weeklyPercent)));
-    const weeklyColor = getColor(weekly);
-    const weeklyFilled = Math.round((weekly / 100) * barWidth);
-    const weeklyEmpty = barWidth - weeklyFilled;
-    const weeklyBar = `${weeklyColor}${'█'.repeat(weeklyFilled)}${DIM}${'░'.repeat(weeklyEmpty)}${RESET}`;
-    const weeklyReset = formatResetTime(limits.weeklyResetsAt);
-
-    const weeklyPart = weeklyReset
-      ? `${DIM}wk:${RESET}[${weeklyBar}]${weeklyColor}${weekly}%${RESET}${DIM}(${weeklyReset})${RESET}`
-      : `${DIM}wk:${RESET}[${weeklyBar}]${weeklyColor}${weekly}%${RESET}`;
-
-    parts.push(weeklyPart);
-  }
-
-  if (limits.monthlyPercent != null) {
-    const monthly = Math.min(100, Math.max(0, Math.round(limits.monthlyPercent)));
-    const monthlyColor = getColor(monthly);
-    const monthlyFilled = Math.round((monthly / 100) * barWidth);
-    const monthlyEmpty = barWidth - monthlyFilled;
-    const monthlyBar = `${monthlyColor}${'█'.repeat(monthlyFilled)}${DIM}${'░'.repeat(monthlyEmpty)}${RESET}`;
-    const monthlyReset = formatResetTime(limits.monthlyResetsAt);
-
-    const monthlyPart = monthlyReset
-      ? `${DIM}mo:${RESET}[${monthlyBar}]${monthlyColor}${monthly}%${RESET}${DIM}(${monthlyReset})${RESET}`
-      : `${DIM}mo:${RESET}[${monthlyBar}]${monthlyColor}${monthly}%${RESET}`;
-
-    parts.push(monthlyPart);
-  }
-
-  return parts.join(' ');
+  return `${fiveHourPart} ${weeklyPart}`;
 }

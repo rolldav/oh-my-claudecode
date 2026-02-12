@@ -53,17 +53,6 @@ export interface InstallOptions {
  */
 export declare function isHudEnabledInConfig(): boolean;
 /**
- * Detect whether a statusLine config belongs to oh-my-claudecode.
- *
- * Checks the command string for known OMC HUD paths so that custom
- * (non-OMC) statusLine configurations are preserved during forced
- * updates/reconciliation.
- *
- * @param statusLine - The statusLine setting object from settings.json
- * @returns true if the statusLine was set by OMC
- */
-export declare function isOmcStatusLine(statusLine: unknown): boolean;
-/**
  * Detect whether a hook command belongs to oh-my-claudecode.
  *
  * Uses substring matching rather than word-boundary regex.

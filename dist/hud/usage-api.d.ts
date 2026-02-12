@@ -12,27 +12,6 @@
  * Response: { five_hour: { utilization }, seven_day: { utilization } }
  */
 import type { RateLimits } from './types.js';
-interface ZaiQuotaResponse {
-    data?: {
-        limits?: Array<{
-            type: string;
-            percentage: number;
-            remain_count?: number;
-            quota_count?: number;
-            currentValue?: number;
-            usage?: number;
-            nextResetTime?: number;
-        }>;
-    };
-}
-/**
- * Check if a URL points to z.ai (exact hostname match)
- */
-export declare function isZaiHost(urlString: string): boolean;
-/**
- * Parse z.ai API response into RateLimits
- */
-export declare function parseZaiResponse(response: ZaiQuotaResponse): RateLimits | null;
 /**
  * Get usage data (with caching)
  *
@@ -42,5 +21,4 @@ export declare function parseZaiResponse(response: ZaiQuotaResponse): RateLimits
  * - API call failed
  */
 export declare function getUsage(): Promise<RateLimits | null>;
-export {};
 //# sourceMappingURL=usage-api.d.ts.map

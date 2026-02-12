@@ -113,8 +113,8 @@ export interface PrdStateForHud {
 export interface RateLimits {
     /** 5-hour rolling window usage percentage (0-100) - all models combined */
     fiveHourPercent: number;
-    /** Weekly usage percentage (0-100) - all models combined (undefined if not applicable) */
-    weeklyPercent?: number;
+    /** Weekly usage percentage (0-100) - all models combined */
+    weeklyPercent: number;
     /** When the 5-hour limit resets (null if unavailable) */
     fiveHourResetsAt?: Date | null;
     /** When the weekly limit resets (null if unavailable) */
@@ -127,10 +127,6 @@ export interface RateLimits {
     opusWeeklyPercent?: number;
     /** Opus weekly reset time */
     opusWeeklyResetsAt?: Date | null;
-    /** Monthly usage percentage (0-100), if available from API */
-    monthlyPercent?: number;
-    /** When the monthly limit resets (null if unavailable) */
-    monthlyResetsAt?: Date | null;
 }
 export interface HudRenderContext {
     /** Context window percentage (0-100) */

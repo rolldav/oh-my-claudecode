@@ -10,16 +10,12 @@ export interface RateLimitStatus {
   fiveHourLimited: boolean;
   /** Whether rate limited on weekly window */
   weeklyLimited: boolean;
-  /** Whether rate limited on monthly window (if available from API) */
-  monthlyLimited: boolean;
-  /** Combined: true if any limit is hit */
+  /** Combined: true if either limit is hit */
   isLimited: boolean;
   /** When 5-hour limit resets */
   fiveHourResetsAt: Date | null;
   /** When weekly limit resets */
   weeklyResetsAt: Date | null;
-  /** When monthly limit resets (if available from API) */
-  monthlyResetsAt: Date | null;
   /** Earliest reset time */
   nextResetAt: Date | null;
   /** Time until reset in milliseconds */
