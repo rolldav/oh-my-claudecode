@@ -400,6 +400,7 @@ export function getReplyListenerPlatformConfig(config) {
         telegramChatId: telegramConfig?.chatId || config.telegram?.chatId,
         discordBotToken: discordBotConfig?.botToken || config["discord-bot"]?.botToken,
         discordChannelId: discordBotConfig?.channelId || config["discord-bot"]?.channelId,
+        discordMention: discordBotConfig?.mention || config["discord-bot"]?.mention,
     };
 }
 /**

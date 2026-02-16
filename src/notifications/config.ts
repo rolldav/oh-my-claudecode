@@ -480,6 +480,7 @@ export function getReplyListenerPlatformConfig(
   telegramChatId?: string;
   discordBotToken?: string;
   discordChannelId?: string;
+  discordMention?: string;
 } {
   if (!config) return {};
 
@@ -501,6 +502,8 @@ export function getReplyListenerPlatformConfig(
       discordBotConfig?.botToken || config["discord-bot"]?.botToken,
     discordChannelId:
       discordBotConfig?.channelId || config["discord-bot"]?.channelId,
+    discordMention:
+      discordBotConfig?.mention || config["discord-bot"]?.mention,
   };
 }
 

@@ -155,6 +155,70 @@ describe("reply config", () => {
     ]);
   });
 
+  it("returns discordMention from top-level discord-bot config", async () => {
+    mockConfigFile({
+      notifications: {
+        enabled: true,
+        "discord-bot": {
+          enabled: true,
+          botToken: "discord-token",
+          channelId: "discord-channel",
+          mention: "<@123456789012345678>",
+        },
+        reply: {
+          enabled: true,
+          authorizedDiscordUserIds: [VALID_DISCORD_USER_ID],
+        },
+      },
+    });
+
+    const { getNotificationConfig, getReplyListenerPlatformConfig } =
+      await import("../config.js");
+    const notifConfig = getNotificationConfig();
+    const runtime = getReplyListenerPlatformConfig(notifConfig);
+
+    expect(runtime.discordMention).toBe("<@123456789012345678>");
+  });
+
+  it("returns discordMention from env var OMC_DISCORD_MENTION", async () => {
+    process.env.OMC_DISCORD_NOTIFIER_BOT_TOKEN = "env-token";
+    process.env.OMC_DISCORD_NOTIFIER_CHANNEL = "env-channel";
+    process.env.OMC_DISCORD_MENTION = "<@987654321098765432>";
+
+    mockConfigFile(null);
+
+    const { getNotificationConfig, getReplyListenerPlatformConfig } =
+      await import("../config.js");
+    const notifConfig = getNotificationConfig();
+    const runtime = getReplyListenerPlatformConfig(notifConfig);
+
+    expect(runtime.discordMention).toBe("<@987654321098765432>");
+  });
+
+  it("returns undefined discordMention when no mention is configured", async () => {
+    mockConfigFile({
+      notifications: {
+        enabled: true,
+        "discord-bot": {
+          enabled: true,
+          botToken: "discord-token",
+          channelId: "discord-channel",
+        },
+        reply: {
+          enabled: true,
+          authorizedDiscordUserIds: [VALID_DISCORD_USER_ID],
+        },
+      },
+    });
+
+    const { getNotificationConfig, getReplyListenerPlatformConfig } =
+      await import("../config.js");
+    const notifConfig = getNotificationConfig();
+    const runtime = getReplyListenerPlatformConfig(notifConfig);
+
+    expect(runtime.discordMention).toBeUndefined();
+  });
+
   it("resolves discord credentials from event-level config and falls back to top-level tokens", async () => {
     mockConfigFile({
       notifications: {

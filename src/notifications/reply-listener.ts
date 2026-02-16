@@ -33,6 +33,7 @@ import {
   pruneStale,
 } from './session-registry.js';
 import type { ReplyConfig } from './types.js';
+import { parseMentionAllowedMentions } from './config.js';
 
 // ESM compatibility: __filename is not available in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -91,6 +92,8 @@ export interface ReplyListenerDaemonConfig extends ReplyConfig {
   telegramChatId?: string;
   discordBotToken?: string;
   discordChannelId?: string;
+  /** Discord mention tag to include in injection feedback (e.g. "<@123456>") */
+  discordMention?: string;
 }
 
 /** Response from daemon operations */
@@ -510,6 +513,10 @@ async function pollDiscord(
 
         // Send injection notification to channel (non-critical)
         try {
+          const mentionPrefix = config.discordMention ? `${config.discordMention} ` : '';
+          const feedbackAllowedMentions = config.discordMention
+            ? parseMentionAllowedMentions(config.discordMention)
+            : { parse: [] as string[] };
           await fetch(
             `https://discord.com/api/v10/channels/${config.discordChannelId}/messages`,
             {
@@ -519,8 +526,8 @@ async function pollDiscord(
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                content: `Injected into Claude Code session.`,
-                allowed_mentions: { parse: [] },
+                content: `${mentionPrefix}Injected into Claude Code session.`,
+                allowed_mentions: feedbackAllowedMentions,
               }),
               signal: AbortSignal.timeout(5000),
             }

@@ -55,6 +55,7 @@ export declare function getReplyListenerPlatformConfig(config: NotificationConfi
     telegramChatId?: string;
     discordBotToken?: string;
     discordChannelId?: string;
+    discordMention?: string;
 };
 /**
  * Get reply injection configuration.

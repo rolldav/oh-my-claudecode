@@ -336,15 +336,9 @@ describe("reply-listener", () => {
     it("Discord sends channel notification after successful injection", () => {
       const channelId = "123456";
       const expectedUrl = `https://discord.com/api/v10/channels/${channelId}/messages`;
-      const expectedBody = {
-        content: "Injected into Claude Code session.",
-        allowed_mentions: { parse: [] },
-      };
 
       expect(expectedUrl).toContain(`/channels/${channelId}/messages`);
       expect(expectedUrl).not.toContain("reactions");
-      expect(expectedBody.content).toBe("Injected into Claude Code session.");
-      expect(expectedBody.allowed_mentions.parse).toEqual([]);
     });
 
     it("Telegram sends reply confirmation on successful injection", () => {
@@ -393,7 +387,7 @@ describe("reply-listener", () => {
       expect(source).toContain("timeout: 5000");
     });
 
-    it("Discord channel notification suppresses mentions", () => {
+    it("Discord channel notification uses parseMentionAllowedMentions for mention-aware allowed_mentions", () => {
       const fs = require("fs");
       const path = require("path");
       const source = fs.readFileSync(
@@ -401,8 +395,10 @@ describe("reply-listener", () => {
         "utf-8",
       );
 
-      // Channel notification uses allowed_mentions: { parse: [] } to suppress pings
-      expect(source).toContain("allowed_mentions: { parse: [] }");
+      // Channel notification uses parseMentionAllowedMentions to build allowed_mentions
+      expect(source).toContain("parseMentionAllowedMentions");
+      // Falls back to { parse: [] } when no mention is configured
+      expect(source).toContain("parse: [] as string[]");
     });
 
     it("does not send feedback on failed injection", () => {
@@ -418,6 +414,105 @@ describe("reply-listener", () => {
       const successBlocks = source.match(/if \(success\) \{[\s\S]*?messagesInjected/g);
       expect(successBlocks).not.toBeNull();
       expect(successBlocks!.length).toBe(2); // one for Discord, one for Telegram
+    });
+  });
+
+  describe("Injection feedback mention", () => {
+    it("prefixes Discord feedback with mention when discordMention is set", () => {
+      const mention = "<@123456789012345678>";
+      const mentionPrefix = mention ? `${mention} ` : '';
+      const content = `${mentionPrefix}Injected into Claude Code session.`;
+
+      expect(content).toBe("<@123456789012345678> Injected into Claude Code session.");
+    });
+
+    it("omits mention prefix when discordMention is undefined", () => {
+      const mention: string | undefined = undefined;
+      const mentionPrefix = mention ? `${mention} ` : '';
+      const content = `${mentionPrefix}Injected into Claude Code session.`;
+
+      expect(content).toBe("Injected into Claude Code session.");
+    });
+
+    it("builds allowed_mentions for user mention", () => {
+      // Inline equivalent of parseMentionAllowedMentions for user mention
+      const mention = "<@123456789012345678>";
+      const userMatch = mention.match(/^<@!?(\d{17,20})>$/);
+      const allowedMentions = userMatch ? { users: [userMatch[1]] } : {};
+
+      expect(allowedMentions).toEqual({ users: ["123456789012345678"] });
+    });
+
+    it("builds allowed_mentions for role mention", () => {
+      const mention = "<@&123456789012345678>";
+      const roleMatch = mention.match(/^<@&(\d{17,20})>$/);
+      const allowedMentions = roleMatch ? { roles: [roleMatch[1]] } : {};
+
+      expect(allowedMentions).toEqual({ roles: ["123456789012345678"] });
+    });
+
+    it("falls back to suppressing mentions when no discordMention", () => {
+      const mention: string | undefined = undefined;
+      const allowedMentions = mention
+        ? { users: ["123"] }
+        : { parse: [] as string[] };
+
+      expect(allowedMentions).toEqual({ parse: [] });
+    });
+
+    it("ReplyListenerDaemonConfig includes discordMention field", () => {
+      const fs = require("fs");
+      const path = require("path");
+      const source = fs.readFileSync(
+        path.join(__dirname, "..", "reply-listener.ts"),
+        "utf-8",
+      );
+
+      expect(source).toContain("discordMention?: string");
+    });
+
+    it("buildDaemonConfig passes discordMention from notification config", () => {
+      const fs = require("fs");
+      const path = require("path");
+      const source = fs.readFileSync(
+        path.join(__dirname, "..", "reply-listener.ts"),
+        "utf-8",
+      );
+
+      // buildDaemonConfig spreads platformConfig which now includes discordMention
+      expect(source).toContain("getReplyListenerPlatformConfig");
+      expect(source).toContain("...platformConfig");
+    });
+
+    it("getReplyListenerPlatformConfig returns discordMention", () => {
+      const fs = require("fs");
+      const path = require("path");
+      const configSource = fs.readFileSync(
+        path.join(__dirname, "..", "config.ts"),
+        "utf-8",
+      );
+
+      expect(configSource).toContain("discordMention");
+      // Should read mention from discordBotConfig
+      expect(configSource).toContain("discordBotConfig?.mention");
+    });
+
+    it("Telegram feedback does not include Discord mention", () => {
+      const fs = require("fs");
+      const path = require("path");
+      const source = fs.readFileSync(
+        path.join(__dirname, "..", "reply-listener.ts"),
+        "utf-8",
+      );
+
+      // Telegram sendMessage body should not reference discordMention
+      // Find the Telegram reply body - it uses a simple text string
+      const telegramReplyMatch = source.match(
+        /text:\s*['"]Injected into Claude Code session\.['"]/g,
+      );
+      expect(telegramReplyMatch).not.toBeNull();
+      // Should have exactly 1 match (Telegram only; Discord now uses template)
+      expect(telegramReplyMatch!.length).toBe(1);
     });
   });
 

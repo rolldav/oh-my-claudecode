@@ -22,6 +22,7 @@ import { spawn } from 'child_process';
 import { request as httpsRequest } from 'https';
 import { capturePaneContent, analyzePaneContent, sendToPane, isTmuxAvailable, } from '../features/rate-limit-wait/tmux-detector.js';
 import { lookupByMessageId, removeMessagesByPane, pruneStale, } from './session-registry.js';
+import { parseMentionAllowedMentions } from './config.js';
 // ESM compatibility: __filename is not available in ES modules
 const __filename = fileURLToPath(import.meta.url);
 // ============================================================================
@@ -403,6 +404,10 @@ async function pollDiscord(config, state, rateLimiter) {
                 }
                 // Send injection notification to channel (non-critical)
                 try {
+                    const mentionPrefix = config.discordMention ? `${config.discordMention} ` : '';
+                    const feedbackAllowedMentions = config.discordMention
+                        ? parseMentionAllowedMentions(config.discordMention)
+                        : { parse: [] };
                     await fetch(`https://discord.com/api/v10/channels/${config.discordChannelId}/messages`, {
                         method: 'POST',
                         headers: {
@@ -410,8 +415,8 @@ async function pollDiscord(config, state, rateLimiter) {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            content: `Injected into Claude Code session.`,
-                            allowed_mentions: { parse: [] },
+                            content: `${mentionPrefix}Injected into Claude Code session.`,
+                            allowed_mentions: feedbackAllowedMentions,
                         }),
                         signal: AbortSignal.timeout(5000),
                     });

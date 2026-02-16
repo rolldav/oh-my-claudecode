@@ -33,6 +33,8 @@ export interface ReplyListenerDaemonConfig extends ReplyConfig {
     telegramChatId?: string;
     discordBotToken?: string;
     discordChannelId?: string;
+    /** Discord mention tag to include in injection feedback (e.g. "<@123456>") */
+    discordMention?: string;
 }
 /** Response from daemon operations */
 export interface DaemonResponse {
