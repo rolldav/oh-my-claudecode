@@ -13,8 +13,55 @@ import {
   createHudWatchPane,
   killTmuxPane,
   isClaudeAvailable,
+  sanitizeTmuxToken,
   type ClaudeLaunchPolicy,
 } from './tmux-utils.js';
+
+/**
+ * Options for controlling tmux session behaviour when launching Claude.
+ */
+export interface LaunchOptions {
+  /** Custom tmux session name (overrides the auto-derived name). Only used when outside tmux. */
+  session?: string;
+  /** When true, skip tmux entirely and run claude in the current shell. */
+  noTmux?: boolean;
+}
+
+/**
+ * Extract omc-specific launch flags from a raw argv array.
+ * Strips --session <name> and --no-tmux; everything else is forwarded to claude.
+ */
+export function extractOmcLaunchFlags(args: string[]): {
+  session: string | undefined;
+  noTmux: boolean;
+  claudeArgs: string[];
+} {
+  let session: string | undefined;
+  let noTmux = false;
+  const claudeArgs: string[] = [];
+
+  let i = 0;
+  while (i < args.length) {
+    const arg = args[i];
+    if (arg === '--session') {
+      if (i + 1 < args.length) {
+        session = args[i + 1];
+        i += 2;
+      } else {
+        // --session at end without value: consume the flag, session stays undefined
+        i++;
+      }
+    } else if (arg === '--no-tmux') {
+      noTmux = true;
+      i++;
+    } else {
+      claudeArgs.push(arg);
+      i++;
+    }
+  }
+
+  return { session, noTmux, claudeArgs };
+}
 
 // Flag mapping
 const MADMAX_FLAG = '--madmax';
@@ -75,7 +122,7 @@ export async function preLaunch(_cwd: string, _sessionId: string): Promise<void>
  * 2. outside-tmux: Create new tmux session with claude + HUD pane
  * 3. direct: tmux not available, run claude directly
  */
-export function runClaude(cwd: string, args: string[], sessionId: string): void {
+export function runClaude(cwd: string, args: string[], sessionId: string, options: LaunchOptions = {}): void {
   const omcBin = process.argv[1];
   const policy = resolveLaunchPolicy(process.env);
 
@@ -89,7 +136,7 @@ export function runClaude(cwd: string, args: string[], sessionId: string): void 
       runClaudeInsideTmux(cwd, args, hudCmd);
       break;
     case 'outside-tmux':
-      runClaudeOutsideTmux(cwd, args, sessionId, hudCmd);
+      runClaudeOutsideTmux(cwd, args, sessionId, hudCmd, options.session);
       break;
     case 'direct':
       runClaudeDirect(cwd, args);
@@ -147,10 +194,12 @@ function runClaudeInsideTmux(cwd: string, args: string[], hudCmd: string): void 
  * Run Claude outside tmux - create new session
  * Creates tmux session with Claude + HUD pane
  */
-function runClaudeOutsideTmux(cwd: string, args: string[], sessionId: string, hudCmd: string): void {
+function runClaudeOutsideTmux(cwd: string, args: string[], sessionId: string, hudCmd: string, customSessionName?: string): void {
   const claudeCmd = buildTmuxShellCommand('claude', args);
   const tmuxSessionId = `omc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const sessionName = buildTmuxSessionName(cwd, tmuxSessionId);
+  const sessionName = customSessionName
+    ? sanitizeTmuxToken(customSessionName)
+    : buildTmuxSessionName(cwd, tmuxSessionId);
 
   const tmuxArgs = [
     'new-session', '-d', '-s', sessionName, '-c', cwd,
@@ -211,7 +260,7 @@ export async function postLaunch(_cwd: string, _sessionId: string): Promise<void
  * Main launch command entry point
  * Orchestrates the 3-phase launch: preLaunch -> run -> postLaunch
  */
-export async function launchCommand(args: string[]): Promise<void> {
+export async function launchCommand(args: string[], options: LaunchOptions = {}): Promise<void> {
   const cwd = process.cwd();
 
   // Pre-flight: check for nested session
@@ -240,7 +289,12 @@ export async function launchCommand(args: string[]): Promise<void> {
 
   // Phase 2: run
   try {
-    runClaude(cwd, normalizedArgs, sessionId);
+    if (options.noTmux) {
+      // --no-tmux: bypass session wrapping, run claude in current shell
+      runClaudeDirect(cwd, normalizedArgs);
+    } else {
+      runClaude(cwd, normalizedArgs, sessionId, options);
+    }
   } finally {
     // Phase 3: postLaunch
     await postLaunch(cwd, sessionId);

@@ -3,7 +3,39 @@
  * Launches Claude Code with tmux session management and HUD integration
  */
 import { execFileSync } from 'child_process';
-import { resolveLaunchPolicy, buildTmuxSessionName, buildTmuxShellCommand, listHudWatchPaneIdsInCurrentWindow, createHudWatchPane, killTmuxPane, isClaudeAvailable, } from './tmux-utils.js';
+import { resolveLaunchPolicy, buildTmuxSessionName, buildTmuxShellCommand, listHudWatchPaneIdsInCurrentWindow, createHudWatchPane, killTmuxPane, isClaudeAvailable, sanitizeTmuxToken, } from './tmux-utils.js';
+/**
+ * Extract omc-specific launch flags from a raw argv array.
+ * Strips --session <name> and --no-tmux; everything else is forwarded to claude.
+ */
+export function extractOmcLaunchFlags(args) {
+    let session;
+    let noTmux = false;
+    const claudeArgs = [];
+    let i = 0;
+    while (i < args.length) {
+        const arg = args[i];
+        if (arg === '--session') {
+            if (i + 1 < args.length) {
+                session = args[i + 1];
+                i += 2;
+            }
+            else {
+                // --session at end without value: consume the flag, session stays undefined
+                i++;
+            }
+        }
+        else if (arg === '--no-tmux') {
+            noTmux = true;
+            i++;
+        }
+        else {
+            claudeArgs.push(arg);
+            i++;
+        }
+    }
+    return { session, noTmux, claudeArgs };
+}
 // Flag mapping
 const MADMAX_FLAG = '--madmax';
 const YOLO_FLAG = '--yolo';
@@ -55,7 +87,7 @@ export async function preLaunch(_cwd, _sessionId) {
  * 2. outside-tmux: Create new tmux session with claude + HUD pane
  * 3. direct: tmux not available, run claude directly
  */
-export function runClaude(cwd, args, sessionId) {
+export function runClaude(cwd, args, sessionId, options = {}) {
     const omcBin = process.argv[1];
     const policy = resolveLaunchPolicy(process.env);
     // Check if omc has a HUD command
@@ -67,7 +99,7 @@ export function runClaude(cwd, args, sessionId) {
             runClaudeInsideTmux(cwd, args, hudCmd);
             break;
         case 'outside-tmux':
-            runClaudeOutsideTmux(cwd, args, sessionId, hudCmd);
+            runClaudeOutsideTmux(cwd, args, sessionId, hudCmd, options.session);
             break;
         case 'direct':
             runClaudeDirect(cwd, args);
@@ -123,10 +155,12 @@ function runClaudeInsideTmux(cwd, args, hudCmd) {
  * Run Claude outside tmux - create new session
  * Creates tmux session with Claude + HUD pane
  */
-function runClaudeOutsideTmux(cwd, args, sessionId, hudCmd) {
+function runClaudeOutsideTmux(cwd, args, sessionId, hudCmd, customSessionName) {
     const claudeCmd = buildTmuxShellCommand('claude', args);
     const tmuxSessionId = `omc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const sessionName = buildTmuxSessionName(cwd, tmuxSessionId);
+    const sessionName = customSessionName
+        ? sanitizeTmuxToken(customSessionName)
+        : buildTmuxSessionName(cwd, tmuxSessionId);
     const tmuxArgs = [
         'new-session', '-d', '-s', sessionName, '-c', cwd,
         claudeCmd,
@@ -177,7 +211,7 @@ export async function postLaunch(_cwd, _sessionId) {
  * Main launch command entry point
  * Orchestrates the 3-phase launch: preLaunch -> run -> postLaunch
  */
-export async function launchCommand(args) {
+export async function launchCommand(args, options = {}) {
     const cwd = process.cwd();
     // Pre-flight: check for nested session
     if (process.env.CLAUDECODE) {
@@ -202,7 +236,13 @@ export async function launchCommand(args) {
     }
     // Phase 2: run
     try {
-        runClaude(cwd, normalizedArgs, sessionId);
+        if (options.noTmux) {
+            // --no-tmux: bypass session wrapping, run claude in current shell
+            runClaudeDirect(cwd, normalizedArgs);
+        }
+        else {
+            runClaude(cwd, normalizedArgs, sessionId, options);
+        }
     }
     finally {
         // Phase 3: postLaunch
