@@ -376,8 +376,10 @@ export function processOrchestratorPreTool(input: ToolExecuteInput): ToolExecute
     return { continue: true };
   }
 
-  // Extract file path from tool input
-  const filePath = (toolInput?.filePath ?? toolInput?.path ?? toolInput?.file) as string | undefined;
+  // Extract file path from tool input.
+  // Claude Code sends file_path (snake_case) for Write/Edit tools and notebook_path for NotebookEdit.
+  // toolInput is the tool's own parameter object, NOT normalized by normalizeHookInput.
+  const filePath = (toolInput?.file_path ?? toolInput?.filePath ?? toolInput?.path ?? toolInput?.file ?? toolInput?.notebook_path) as string | undefined;
 
   // Allow if path is in allowed prefix
   if (!filePath || isAllowedPath(filePath, directory)) {
