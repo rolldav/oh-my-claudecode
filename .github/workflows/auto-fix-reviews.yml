@@ -1,0 +1,38 @@
+name: Auto-fix PR reviews (with cross-review)
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  cross-review-and-fix:
+    if: >
+      github.event.review.state == 'commented' &&
+      contains(fromJSON('["chatgpt-codex-connector[bot]","gemini-code-assist[bot]"]'), github.event.review.user.login)
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Wait for second reviewer
+        run: sleep 60
+
+      - name: Check if both reviewers have commented
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          REVIEWERS=$(gh api repos/${{ github.repository }}/pulls/$PR/reviews \
+            --jq '[.[].user.login] | unique | map(select(test("codex|gemini";"i"))) | length')
+          echo "reviewer_count=$REVIEWERS" >> "$GITHUB_OUTPUT"
+
+      - name: Request critical review + fix via Copilot
+        if: steps.check.outputs.reviewer_count >= 2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr comment $PR \
+            --repo ${{ github.repository }} \
+            --body "/pr-fix Cross-review the suggestions from Codex and Gemini on this PR. For each suggestion: 1) Read the actual source file to verify the issue is real, 2) Check if the suggestion is complete (are there similar issues in nearby code they missed?), 3) Post a summary table with verdict (VALID/INVALID/INCOMPLETE) for each suggestion, 4) Apply ALL valid fixes including the ones the reviewers missed, 5) Push a single commit with the complete fix."
